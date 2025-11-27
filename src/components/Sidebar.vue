@@ -178,9 +178,6 @@ const contextMenuItems = computed(() => [
 
 <style scoped>
 .sidebar {
-  width: 260px;
-  min-width: 200px;
-  max-width: 260px;
   background-color: var(--bg-secondary);
   border-right: 1px solid var(--border-color);
   display: flex;
@@ -188,6 +185,7 @@ const contextMenuItems = computed(() => [
   height: 100%;
   overflow: hidden;
   flex-shrink: 0;
+  min-width: 0;
 }
 
 .sidebar-header {

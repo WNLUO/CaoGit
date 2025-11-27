@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, onMounted } from 'vue';
 
 import Sidebar from "./components/Sidebar.vue";
 import TopBar from "./components/TopBar.vue";
@@ -7,6 +7,8 @@ import RepoMain from "./components/RepoMain.vue";
 import SettingsModal from "./components/SettingsModal.vue";
 import DebugErrorDialog from "./components/DebugErrorDialog.vue";
 import AddRepoModal from "./components/AddRepoModal.vue";
+import Resizer from "./components/Resizer.vue";
+import { settingsStore } from "./stores/settingsStore";
 import type { Repository } from "./types";
 
 const isSettingsOpen = ref(false);
@@ -14,6 +16,7 @@ const settingsMode = ref<'global' | 'repo'>('global');
 const selectedRepo = ref<Repository | undefined>(undefined);
 const activeRepo = ref<Repository | undefined>(undefined);
 const isAddRepoOpen = ref(false);
+const sidebarWidth = ref(240);
 
 function openGlobalSettings() {
   settingsMode.value = 'global';
@@ -40,15 +43,29 @@ function handleRepoAdded(_path: string) {
   isAddRepoOpen.value = false;
   // TODO: Refresh repo list or select the new repo
 }
+
+onMounted(() => {
+  // 从设置中恢复 Sidebar 宽度
+  sidebarWidth.value = settingsStore.settings.layout.sidebarWidth ?? 240;
+});
+
+function handleSidebarResize(delta: number) {
+  // 最小宽度设置为网络状态框的宽度 (240px)
+  const newWidth = Math.max(240, Math.min(400, sidebarWidth.value + delta));
+  sidebarWidth.value = newWidth;
+  settingsStore.updateLayoutSettings({ sidebarWidth: newWidth });
+}
 </script>
 
 <template>
   <div class="app-layout">
-    <Sidebar 
+    <Sidebar
+      :style="{ width: sidebarWidth + 'px' }"
       @open-global-settings="openGlobalSettings"
       @open-repo-settings="openRepoSettings"
       @select-repo="selectRepo"
     />
+    <Resizer direction="horizontal" @resize="handleSidebarResize" />
     <main class="main-content">
       <TopBar @open-global-settings="openGlobalSettings" />
       <div class="content-area">
@@ -109,6 +126,10 @@ function handleRepoAdded(_path: string) {
   width: 100vw;
   overflow: hidden;
   min-width: 0;
+}
+
+.app-layout > :first-child {
+  flex-shrink: 0;
 }
 
 .main-content {

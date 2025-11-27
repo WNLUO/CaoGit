@@ -63,24 +63,31 @@
   --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
   --transition-normal: 200ms cubic-bezier(0.4, 0, 0.2, 1);
 
-  /* Diff View Colors */
-  --diff-hunk-bg: #f0f4f8;
-  --diff-hunk-text: #7a8a99;
-  --diff-hunk-border: #e1e4e8;
+  /* Diff View Colors - GitHub Style Light */
+  --diff-hunk-bg: #f6f8fa;
+  --diff-hunk-text: #57606a;
+  --diff-hunk-border: #d0d7de;
 
-  --diff-line-border: #e1e4e8;
-  --diff-line-number: #8c92a0;
-  --diff-gutter-bg: #fafbfc;
+  --diff-line-border: #d0d7de;
+  --diff-line-number: #57606a;
+  --diff-gutter-bg: #ffffff;
 
-  --diff-add-bg: #e6ffec;
-  --diff-add-text: #24292e;
-  --diff-add-gutter: #cdffd8;
+  /* GitHub green for additions */
+  --diff-add-bg: #e6ffed;
+  --diff-add-text: #1f2328;
+  --diff-add-gutter: #ccffd8;
+  --diff-add-border: #34d058;
+  --diff-add-word-bg: #abf2bc;
 
+  /* GitHub red for deletions */
   --diff-remove-bg: #ffebe9;
-  --diff-remove-text: #24292e;
+  --diff-remove-text: #1f2328;
   --diff-remove-gutter: #ffd7d5;
+  --diff-remove-border: #f85149;
+  --diff-remove-word-bg: #ffb3af;
 
-  --diff-empty-bg: #fafbfc;
+  --diff-empty-bg: #f6f8fa;
+  --diff-context-hover: #f3f4f6;
 }
 
 /* Dark theme - explicit */
@@ -110,24 +117,31 @@
   --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.3), 0 2px 4px -2px rgb(0 0 0 / 0.3);
   --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.3), 0 4px 6px -4px rgb(0 0 0 / 0.3);
 
-  /* Diff View Colors - Dark Theme */
-  --diff-hunk-bg: #1c2938;
+  /* Diff View Colors - GitHub Style Dark */
+  --diff-hunk-bg: #161b22;
   --diff-hunk-text: #8b949e;
   --diff-hunk-border: #30363d;
 
   --diff-line-border: #30363d;
-  --diff-line-number: #6e7681;
+  --diff-line-number: #8b949e;
   --diff-gutter-bg: #0d1117;
 
-  --diff-add-bg: #0d3a24;
+  /* GitHub green for additions - dark theme */
+  --diff-add-bg: #1c2d20;
   --diff-add-text: #aff5b4;
-  --diff-add-gutter: #0c3022;
+  --diff-add-gutter: #1b2f24;
+  --diff-add-border: #3fb950;
+  --diff-add-word-bg: #23532c;
 
-  --diff-remove-bg: #481a1d;
+  /* GitHub red for deletions - dark theme */
+  --diff-remove-bg: #3b1219;
   --diff-remove-text: #ffa198;
-  --diff-remove-gutter: #3f1618;
+  --diff-remove-gutter: #4c1b24;
+  --diff-remove-border: #f85149;
+  --diff-remove-word-bg: #80202e;
 
   --diff-empty-bg: #161b22;
+  --diff-context-hover: #1c2128;
 }
 
 /* Auto theme - follows system preference */
@@ -158,24 +172,31 @@
     --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.3), 0 2px 4px -2px rgb(0 0 0 / 0.3);
     --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.3), 0 4px 6px -4px rgb(0 0 0 / 0.3);
 
-    /* Diff View Colors - Dark Theme */
-    --diff-hunk-bg: #1c2938;
+    /* Diff View Colors - GitHub Style Dark */
+    --diff-hunk-bg: #161b22;
     --diff-hunk-text: #8b949e;
     --diff-hunk-border: #30363d;
 
     --diff-line-border: #30363d;
-    --diff-line-number: #6e7681;
+    --diff-line-number: #8b949e;
     --diff-gutter-bg: #0d1117;
 
-    --diff-add-bg: #0d3a24;
+    /* GitHub green for additions - dark theme */
+    --diff-add-bg: #1c2d20;
     --diff-add-text: #aff5b4;
-    --diff-add-gutter: #0c3022;
+    --diff-add-gutter: #1b2f24;
+    --diff-add-border: #3fb950;
+    --diff-add-word-bg: #23532c;
 
-    --diff-remove-bg: #481a1d;
+    /* GitHub red for deletions - dark theme */
+    --diff-remove-bg: #3b1219;
     --diff-remove-text: #ffa198;
-    --diff-remove-gutter: #3f1618;
+    --diff-remove-gutter: #4c1b24;
+    --diff-remove-border: #f85149;
+    --diff-remove-word-bg: #80202e;
 
     --diff-empty-bg: #161b22;
+    --diff-context-hover: #1c2128;
   }
 }
 

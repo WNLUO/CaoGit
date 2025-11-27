@@ -24,6 +24,14 @@ export interface FileChange {
     path: string;
     status: 'modified' | 'added' | 'deleted' | 'renamed' | 'untracked';
     staged: boolean;
+    diffStatus?: 'idle' | 'generating' | 'applying' | 'applied';
+    stats?: DiffStats;
+}
+
+export interface DiffStats {
+    additions: number;
+    deletions: number;
+    total: number;
 }
 
 export interface Commit {
@@ -58,4 +66,26 @@ export interface ConflictInfo {
     ours: string;
     theirs: string;
     base?: string;
+}
+
+export interface DiffHunk {
+    header: string;
+    lines: DiffLine[];
+    oldStart: number;
+    oldLines: number;
+    newStart: number;
+    newLines: number;
+}
+
+export interface DiffLine {
+    origin: '+' | '-' | ' ';
+    content: string;
+    old_lineno?: number;
+    new_lineno?: number;
+}
+
+export interface DiffData {
+    old_file: string;
+    new_file: string;
+    hunks: DiffHunk[];
 }

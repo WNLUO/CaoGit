@@ -1,15 +1,25 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { repoStore } from '../stores/repoStore';
 import type { FileChange } from '../types';
 import AISettingsModal, { type AISettings } from './AISettingsModal.vue';
 import FileIcon from './FileIcon.vue';
+import Resizer from './Resizer.vue';
+import DiffStats from './DiffStats.vue';
 import { GitApi } from '../services/gitApi';
+import { settingsStore } from '../stores/settingsStore';
 
 const commitMessage = ref('');
 const isCommitting = ref(false);
 const isGeneratingAI = ref(false);
 const showAISettings = ref(false);
+const commitSectionHeight = ref(200); // 提交区域的高度
+const showFileActions = ref(false); // 是否显示文件操作按钮
+
+onMounted(() => {
+  // 从设置中恢复提交区域高度
+  commitSectionHeight.value = settingsStore.settings.layout.commitSectionHeight ?? 200;
+});
 
 const stagedFiles = computed(() => repoStore.fileChanges.filter(f => f.staged));
 const unstagedFiles = computed(() => repoStore.fileChanges.filter(f => !f.staged));
@@ -49,6 +59,34 @@ async function unstageAll() {
     );
   } catch (error: any) {
     alert('取消暂存失败: ' + error.message);
+  }
+}
+
+async function discardFile(file: FileChange) {
+  if (!confirm(`确定要丢弃 ${file.path} 的所有更改吗？此操作不可撤销。`)) {
+    return;
+  }
+
+  try {
+    await repoStore.discardFile(file.path);
+  } catch (error: any) {
+    alert('丢弃更改失败: ' + error.message);
+  }
+}
+
+async function discardAllUnstaged() {
+  if (unstagedFiles.value.length === 0) return;
+
+  if (!confirm(`确定要丢弃所有工作区的更改吗？这将丢弃 ${unstagedFiles.value.length} 个文件的更改，此操作不可撤销。`)) {
+    return;
+  }
+
+  try {
+    await Promise.all(
+      unstagedFiles.value.map(file => repoStore.discardFile(file.path))
+    );
+  } catch (error: any) {
+    alert('丢弃更改失败: ' + error.message);
   }
 }
 
@@ -152,9 +190,9 @@ async function generateAICommitMessage() {
               fileDiff += `${hunk.header}\n`;
               // 只包含变更行，限制长度
               const changes = hunk.lines
-                .filter(line => line.origin === '+' || line.origin === '-')
+                .filter((line: any) => line.origin === '+' || line.origin === '-')
                 .slice(0, 20) // 限制每个 hunk 最多 20 行
-                .map(line => `${line.origin}${line.content}`)
+                .map((line: any) => `${line.origin}${line.content}`)
                 .join('\n');
               fileDiff += changes + '\n';
             }
@@ -213,6 +251,12 @@ function handleAISettingsSave(settings: AISettings) {
   console.log('AI settings saved:', settings);
 }
 
+function handleCommitSectionResize(delta: number) {
+  const newHeight = Math.max(150, Math.min(500, commitSectionHeight.value - delta));
+  commitSectionHeight.value = newHeight;
+  settingsStore.updateLayoutSettings({ commitSectionHeight: newHeight });
+}
+
 function getStatusIcon(status: FileChange['status']) {
   switch (status) {
     case 'modified': return 'M';
@@ -232,6 +276,24 @@ function getStatusColor(status: FileChange['status']) {
     case 'renamed': return '#3b82f6'; // blue
     case 'untracked': return '#9ca3af'; // gray
     default: return 'var(--text-secondary)';
+  }
+}
+
+function getDiffStatusLabel(status?: FileChange['diffStatus']) {
+  switch (status) {
+    case 'generating': return '生成中';
+    case 'applying': return '应用中';
+    case 'applied': return '已应用';
+    default: return null;
+  }
+}
+
+function getDiffStatusColor(status?: FileChange['diffStatus']) {
+  switch (status) {
+    case 'generating': return '#8b5cf6'; // purple
+    case 'applying': return '#f59e0b'; // amber
+    case 'applied': return '#10b981'; // green
+    default: return 'transparent';
   }
 }
 
@@ -263,14 +325,26 @@ function getStatusColor(status: FileChange['status']) {
                 :class="{ selected: repoStore.selectedFile?.path === file.path }"
                 @click="selectFile(file)"
               >
-                <FileIcon :fileName="file.path.split('/').pop() || file.path" />
-                <span class="file-path">{{ file.path }}</span>
-                <span class="status-badge" :style="{ backgroundColor: getStatusColor(file.status) }">
-                  {{ getStatusIcon(file.status) }}
-                </span>
-                <button class="file-action" @click.stop="toggleStage(file)" title="取消暂存">
-                  <span class="action-icon">−</span>
-                </button>
+                <div class="file-main-info">
+                  <FileIcon :fileName="file.path.split('/').pop() || file.path" />
+                  <span class="file-path">{{ file.path }}</span>
+                  <span class="status-badge" :style="{ backgroundColor: getStatusColor(file.status) }">
+                    {{ getStatusIcon(file.status) }}
+                  </span>
+                  <span
+                    v-if="file.diffStatus && file.diffStatus !== 'idle'"
+                    class="diff-status-badge"
+                    :style="{ backgroundColor: getDiffStatusColor(file.diffStatus) }"
+                  >
+                    {{ getDiffStatusLabel(file.diffStatus) }}
+                  </span>
+                  <button class="file-action" @click.stop="toggleStage(file)" title="取消暂存">
+                    <span class="action-icon">−</span>
+                  </button>
+                </div>
+                <div v-if="file.stats" class="file-stats">
+                  <DiffStats :stats="file.stats" compact />
+                </div>
               </li>
             </ul>
           </div>
@@ -279,9 +353,31 @@ function getStatusColor(status: FileChange['status']) {
           <div v-if="unstagedFiles.length > 0" class="file-group">
             <div class="group-header">
               <span class="group-title">工作区 ({{ unstagedFiles.length }})</span>
-              <button class="group-action" @click="stageAll" title="暂存所有文件">
-                <span class="action-icon">+</span>
-              </button>
+              <div class="group-actions">
+                <button
+                  class="group-action toggle-actions"
+                  @click="showFileActions = !showFileActions"
+                  :title="showFileActions ? '隐藏操作按钮' : '显示操作按钮'"
+                >
+                  <svg v-if="showFileActions" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                    <circle cx="12" cy="12" r="3"></circle>
+                  </svg>
+                  <svg v-else width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+                    <line x1="1" y1="1" x2="23" y2="23"></line>
+                  </svg>
+                </button>
+                <button class="group-action discard-all" @click="discardAllUnstaged" title="丢弃所有更改">
+                  <span class="action-icon">×</span>
+                </button>
+                <button class="group-action" @click="stageAll" title="暂存所有文件">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="12" y1="5" x2="12" y2="19"></line>
+                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                  </svg>
+                </button>
+              </div>
             </div>
             <ul class="file-list">
               <li
@@ -290,22 +386,53 @@ function getStatusColor(status: FileChange['status']) {
                 :class="{ selected: repoStore.selectedFile?.path === file.path }"
                 @click="selectFile(file)"
               >
-                <FileIcon :fileName="file.path.split('/').pop() || file.path" />
-                <span class="file-path">{{ file.path }}</span>
-                <span class="status-badge" :style="{ backgroundColor: getStatusColor(file.status) }">
-                  {{ getStatusIcon(file.status) }}
-                </span>
-                <button class="file-action" @click.stop="toggleStage(file)" title="暂存">
-                  <span class="action-icon">+</span>
-                </button>
+                <div class="file-main-info">
+                  <FileIcon :fileName="file.path.split('/').pop() || file.path" />
+                  <span class="file-path">{{ file.path }}</span>
+                  <span class="status-badge" :style="{ backgroundColor: getStatusColor(file.status) }">
+                    {{ getStatusIcon(file.status) }}
+                  </span>
+                  <span
+                    v-if="file.diffStatus && file.diffStatus !== 'idle'"
+                    class="diff-status-badge"
+                    :style="{ backgroundColor: getDiffStatusColor(file.diffStatus) }"
+                  >
+                    {{ getDiffStatusLabel(file.diffStatus) }}
+                  </span>
+                  <button
+                    v-if="showFileActions"
+                    class="file-action discard"
+                    @click.stop="discardFile(file)"
+                    title="丢弃更改"
+                  >
+                    <span class="action-icon">×</span>
+                  </button>
+                  <button
+                    v-if="showFileActions"
+                    class="file-action stage"
+                    @click.stop="toggleStage(file)"
+                    title="暂存"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <line x1="12" y1="5" x2="12" y2="19"></line>
+                      <line x1="5" y1="12" x2="19" y2="12"></line>
+                    </svg>
+                  </button>
+                </div>
+                <div v-if="file.stats" class="file-stats">
+                  <DiffStats :stats="file.stats" compact />
+                </div>
               </li>
             </ul>
           </div>
         </div>
       </div>
 
+      <!-- Resizer for commit section -->
+      <Resizer direction="vertical" @resize="handleCommitSectionResize" />
+
       <!-- Commit Section -->
-      <div class="commit-section">
+      <div class="commit-section" :style="{ height: commitSectionHeight + 'px' }">
         <div class="section-header">
           <span>提交信息</span>
           <div class="ai-actions">
@@ -404,17 +531,29 @@ function getStatusColor(status: FileChange['status']) {
   font-weight: 600;
 }
 
-.group-action {
+.group-actions {
+  display: flex;
+  gap: 4px;
   opacity: 0;
-  padding: 2px 8px;
+  transition: opacity 0.2s;
+}
+
+.group-header:hover .group-actions,
+.group-actions:has(.toggle-actions) {
+  opacity: 1;
+}
+
+.group-action {
+  padding: 4px 8px;
   border-radius: var(--radius-sm);
   color: var(--text-secondary);
   background-color: transparent;
   transition: all 0.2s;
-}
-
-.group-header:hover .group-action {
-  opacity: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  min-height: 24px;
 }
 
 .group-action:hover {
@@ -422,10 +561,31 @@ function getStatusColor(status: FileChange['status']) {
   color: var(--text-primary);
 }
 
+.group-action.discard-all {
+  color: #ef4444;
+}
+
+.group-action.discard-all:hover {
+  background-color: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+}
+
+.group-action.toggle-actions {
+  color: var(--accent-color);
+}
+
+.group-action.toggle-actions:hover {
+  background-color: rgba(59, 130, 246, 0.1);
+  color: var(--accent-color);
+}
+
 .action-icon {
-  font-size: 16px;
+  font-size: 14px;
   font-weight: bold;
   line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .file-list {
@@ -436,12 +596,19 @@ function getStatusColor(status: FileChange['status']) {
 
 .file-list li {
   display: flex;
-  align-items: center;
+  flex-direction: column;
   padding: var(--spacing-xs) var(--spacing-sm);
   cursor: pointer;
   border-radius: var(--radius-sm);
   font-size: var(--font-size-sm);
+  gap: 4px;
+}
+
+.file-main-info {
+  display: flex;
+  align-items: center;
   gap: var(--spacing-sm);
+  width: 100%;
 }
 
 .file-list li:hover {
@@ -454,20 +621,46 @@ function getStatusColor(status: FileChange['status']) {
 }
 
 .file-action {
-  opacity: 0;
-  padding: 2px 6px;
+  padding: 4px 6px;
   border-radius: var(--radius-sm);
   color: var(--text-secondary);
   background-color: transparent;
   transition: all 0.2s;
-  margin-left: var(--spacing-xs);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 1;
+  min-width: 24px;
+  min-height: 24px;
 }
 
-.file-list li:hover .file-action {
-  opacity: 1;
+.file-action.discard {
+  margin-left: auto;
+}
+
+.file-action .action-icon {
+  font-size: 14px;
 }
 
 .file-action:hover {
+  background-color: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.file-action.discard {
+  color: #ef4444;
+}
+
+.file-action.discard:hover {
+  background-color: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+}
+
+.file-action.stage {
+  color: var(--text-secondary);
+}
+
+.file-action.stage:hover {
   background-color: var(--bg-tertiary);
   color: var(--text-primary);
 }
@@ -483,11 +676,27 @@ function getStatusColor(status: FileChange['status']) {
   font-weight: bold;
   font-size: 10px;
   flex-shrink: 0;
-  margin-left: auto;
   padding: 2px 6px;
   border-radius: 3px;
   color: white;
   line-height: 1;
+}
+
+.diff-status-badge {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 3px;
+  color: white;
+  line-height: 1;
+  flex-shrink: 0;
+  margin-left: 4px;
+}
+
+.file-stats {
+  padding-left: 28px;
+  display: flex;
+  align-items: center;
 }
 
 .file-path {
@@ -499,9 +708,13 @@ function getStatusColor(status: FileChange['status']) {
 
 .commit-section {
   padding: var(--spacing-md);
-  border-top: 1px solid var(--border-color);
   background-color: var(--bg-primary);
   flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 150px;
+  max-height: 500px;
+  overflow: hidden;
 }
 
 .ai-actions {
@@ -544,11 +757,16 @@ function getStatusColor(status: FileChange['status']) {
 
 .commit-input-wrapper {
   margin: var(--spacing-sm) 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
 }
 
 textarea {
   width: 100%;
-  height: 100px;
+  flex: 1;
   resize: none;
   padding: var(--spacing-sm);
   border: 1px solid var(--border-color);
@@ -556,6 +774,7 @@ textarea {
   background-color: var(--bg-secondary);
   color: var(--text-primary);
   font-family: inherit;
+  min-height: 60px;
 }
 
 textarea:focus {

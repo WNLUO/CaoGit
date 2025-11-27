@@ -2,14 +2,35 @@
 import { ref, computed, watch } from 'vue';
 import { repoStore } from '../stores/repoStore';
 import { GitApi } from '../services/gitApi';
+import DiffStats from './DiffStats.vue';
+import type { DiffData, DiffStats as DiffStatsType } from '../types';
 
 type DiffMode = 'inline' | 'side-by-side';
 
 const diffMode = ref<DiffMode>('side-by-side');
-const diffData = ref<any>(null);
+const diffData = ref<DiffData | null>(null);
 const isLoading = ref(false);
 
 const selectedFile = computed(() => repoStore.selectedFile);
+
+// 计算变更统计
+const diffStats = computed<DiffStatsType>(() => {
+  if (!diffData.value || !diffData.value.hunks) {
+    return { additions: 0, deletions: 0, total: 0 };
+  }
+
+  let additions = 0;
+  let deletions = 0;
+
+  diffData.value.hunks.forEach(hunk => {
+    hunk.lines.forEach(line => {
+      if (line.origin === '+') additions++;
+      if (line.origin === '-') deletions++;
+    });
+  });
+
+  return { additions, deletions, total: additions + deletions };
+});
 
 watch(selectedFile, async (file) => {
   if (!file || !repoStore.activeRepo) {
@@ -18,6 +39,7 @@ watch(selectedFile, async (file) => {
   }
 
   isLoading.value = true;
+
   try {
     const response = await GitApi.getFileDiff(
       repoStore.activeRepo.path,
@@ -50,13 +72,33 @@ function getLinePrefix(origin: string) {
     default: return ' ';
   }
 }
+
+// 获取文件状态徽章颜色
+function getStatusBadgeColor(status: string) {
+  switch (status) {
+    case 'added': return '#10b981';
+    case 'modified': return '#eab308';
+    case 'deleted': return '#ef4444';
+    case 'renamed': return '#3b82f6';
+    default: return 'var(--text-tertiary)';
+  }
+}
 </script>
 
 <template>
   <div class="enhanced-diff-view">
     <div class="diff-header">
       <div class="file-info">
-        <span v-if="selectedFile" class="file-name">{{ selectedFile.path }}</span>
+        <div v-if="selectedFile" class="file-details">
+          <span class="file-name">{{ selectedFile.path }}</span>
+          <span
+            class="file-status-badge"
+            :style="{ backgroundColor: getStatusBadgeColor(selectedFile.status) }"
+          >
+            {{ selectedFile.status }}
+          </span>
+          <DiffStats v-if="diffStats.total > 0" :stats="diffStats" compact />
+        </div>
         <span v-else class="no-selection">选择文件以查看差异</span>
       </div>
 
@@ -79,7 +121,11 @@ function getLinePrefix(origin: string) {
     <div class="diff-content" v-if="diffData && !isLoading && diffData.hunks && diffData.hunks.length > 0">
       <!-- Inline Mode -->
       <div v-if="diffMode === 'inline'" class="diff-inline">
-        <div v-for="(hunk, hunkIndex) in diffData.hunks" :key="hunkIndex" class="hunk">
+        <div
+          v-for="(hunk, hunkIndex) in diffData.hunks"
+          :key="hunkIndex"
+          class="hunk"
+        >
           <div class="hunk-header">{{ hunk.header }}</div>
           <div v-for="(line, lineIndex) in hunk.lines" :key="lineIndex"
                :class="['diff-line', getLineClass(line.origin)]">
@@ -94,7 +140,11 @@ function getLinePrefix(origin: string) {
 
       <!-- Side-by-side Mode -->
       <div v-else class="diff-side-by-side">
-        <div v-for="(hunk, hunkIndex) in diffData.hunks" :key="hunkIndex" class="hunk">
+        <div
+          v-for="(hunk, hunkIndex) in diffData.hunks"
+          :key="hunkIndex"
+          class="hunk"
+        >
           <div class="hunk-header-row">
             <div class="hunk-header left">{{ hunk.header }}</div>
             <div class="hunk-header right">{{ hunk.header }}</div>
@@ -124,9 +174,24 @@ function getLinePrefix(origin: string) {
 
     <div v-else-if="isLoading" class="loading">加载中...</div>
     <div v-else-if="!selectedFile" class="no-diff">
+      <div class="no-diff-icon">
+        <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+          <polyline points="14 2 14 8 20 8"></polyline>
+          <line x1="16" y1="13" x2="8" y2="13"></line>
+          <line x1="16" y1="17" x2="8" y2="17"></line>
+          <polyline points="10 9 9 9 8 9"></polyline>
+        </svg>
+      </div>
       <div class="no-diff-message">选择文件以查看差异</div>
+      <div class="no-diff-hint">在左侧文件列表中点击文件</div>
     </div>
     <div v-else class="no-diff">
+      <div class="no-diff-icon">
+        <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <polyline points="20 6 9 17 4 12"></polyline>
+        </svg>
+      </div>
       <div class="no-diff-message">无差异数据</div>
       <div class="no-diff-hint">该文件可能没有变更</div>
     </div>
@@ -147,76 +212,95 @@ function getLinePrefix(origin: string) {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: var(--spacing-sm) var(--spacing-md);
+  padding: 12px 16px;
   border-bottom: 1px solid var(--border-color);
-  background-color: var(--bg-secondary);
+  background-color: var(--bg-primary);
   flex-shrink: 0;
   min-width: 0;
   overflow: hidden;
 }
 
 .file-info {
-  font-size: var(--font-size-sm);
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  flex: 1;
+}
+
+.file-details {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex: 1;
+}
+
+.file-name {
+  font-size: 14px;
   font-weight: 600;
   color: var(--text-primary);
-  min-width: 0;
+  white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
-  flex-shrink: 1;
+}
+
+.file-status-badge {
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: white;
+  text-transform: uppercase;
+  flex-shrink: 0;
 }
 
 .no-selection {
   color: var(--text-tertiary);
+  font-weight: 400;
+  font-size: 14px;
 }
 
 .diff-controls {
   display: flex;
-  gap: 0;
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-sm);
-  overflow: hidden;
+  gap: 4px;
   flex-shrink: 0;
 }
 
 .diff-controls button {
-  padding: 5px 12px;
-  font-size: 12px;
-  border: none;
-  border-right: 1px solid var(--border-color);
-  background-color: var(--bg-secondary);
+  padding: 6px 12px;
+  font-size: 13px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background-color: var(--bg-primary);
   color: var(--text-secondary);
   transition: all var(--transition-fast);
-}
-
-.diff-controls button:last-child {
-  border-right: none;
+  font-weight: 500;
 }
 
 .diff-controls button:hover {
   background-color: var(--bg-hover);
-  color: var(--text-primary);
+  border-color: var(--text-tertiary);
 }
 
 .diff-controls button.active {
-  background-color: var(--bg-primary);
-  color: var(--text-primary);
-  font-weight: 500;
+  background-color: var(--accent-color);
+  color: #ffffff;
+  border-color: var(--accent-color);
 }
 
 .diff-content {
   flex: 1;
   overflow: auto;
-  font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Code', 'Fira Mono', 'Droid Sans Mono', 'Source Code Pro', 'Consolas', 'Courier New', monospace;
-  font-size: 13px;
+  font-family: ui-monospace, 'SF Mono', 'Monaco', 'Cascadia Code', 'Segoe UI Mono', 'Roboto Mono', 'Oxygen Mono', 'Ubuntu Monospace', 'Source Code Pro', 'Fira Mono', 'Droid Sans Mono', 'Courier New', monospace;
+  font-size: 12px;
   line-height: 20px;
   background-color: var(--bg-primary);
   min-height: 0;
 }
 
 .diff-content::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
+  width: 12px;
+  height: 12px;
 }
 
 .diff-content::-webkit-scrollbar-track {
@@ -224,29 +308,50 @@ function getLinePrefix(origin: string) {
 }
 
 .diff-content::-webkit-scrollbar-thumb {
-  background: var(--border-color);
-  border-radius: 5px;
+  background-color: var(--border-color);
+  border-radius: 6px;
+  border: 3px solid var(--bg-primary);
 }
 
 .diff-content::-webkit-scrollbar-thumb:hover {
-  background: var(--text-tertiary);
+  background-color: var(--text-tertiary);
 }
 
 .hunk {
-  margin-bottom: 0;
+  margin: 16px;
+  border: 1px solid var(--diff-line-border);
+  border-radius: 8px;
+  overflow: hidden;
 }
 
 .hunk-header {
+  color: var(--diff-hunk-text);
+  padding: 8px 12px;
+  font-weight: 600;
+  font-size: 12px;
+  line-height: 18px;
+  border-bottom: 1px solid var(--diff-line-border);
+}
+
+.hunk-header-row {
+  display: flex;
+  border-bottom: 1px solid var(--diff-line-border);
+}
+
+.hunk-header.left,
+.hunk-header.right {
+  flex: 1;
   background-color: var(--diff-hunk-bg);
   color: var(--diff-hunk-text);
-  padding: 6px 12px;
-  font-weight: 400;
+  padding: 8px 12px;
+  font-weight: 600;
   font-size: 12px;
-  line-height: 20px;
+  line-height: 18px;
   border: none;
-  position: sticky;
-  top: 0;
-  z-index: 10;
+}
+
+.hunk-header.left {
+  border-right: 1px solid var(--diff-line-border);
 }
 
 /* Inline Mode */
@@ -260,25 +365,31 @@ function getLinePrefix(origin: string) {
   min-height: 20px;
   border: none;
   position: relative;
+  transition: background-color 0.1s ease;
 }
 
-.diff-line:hover .line-number {
-  opacity: 1;
+.diff-line:hover {
+  background-color: var(--diff-context-hover);
+}
+
+.diff-line.line-context:hover {
+  background-color: var(--diff-context-hover);
 }
 
 .line-number {
   display: inline-flex;
   align-items: center;
   justify-content: flex-end;
-  width: 56px;
+  width: 50px;
   padding: 0 10px;
   color: var(--diff-line-number);
-  background-color: var(--diff-gutter-bg);
+  background-color: transparent;
   user-select: none;
   flex-shrink: 0;
   font-size: 12px;
   line-height: 20px;
   border: none;
+  font-variant-numeric: tabular-nums;
 }
 
 .old-number {
@@ -291,7 +402,7 @@ function getLinePrefix(origin: string) {
 
 .line-content {
   flex: 1;
-  padding: 0 16px;
+  padding: 0 10px;
   white-space: pre;
   overflow-x: auto;
   line-height: 20px;
@@ -300,9 +411,9 @@ function getLinePrefix(origin: string) {
 
 .line-prefix {
   display: inline-block;
-  width: 16px;
-  font-weight: normal;
-  opacity: 0.6;
+  width: 14px;
+  font-weight: 600;
+  user-select: none;
 }
 
 .line-add {
@@ -312,6 +423,11 @@ function getLinePrefix(origin: string) {
 
 .line-add .line-number {
   background-color: var(--diff-add-gutter);
+  color: var(--diff-line-number);
+}
+
+.line-add .line-prefix {
+  color: var(--diff-add-border);
 }
 
 .line-remove {
@@ -321,39 +437,25 @@ function getLinePrefix(origin: string) {
 
 .line-remove .line-number {
   background-color: var(--diff-remove-gutter);
+  color: var(--diff-line-number);
+}
+
+.line-remove .line-prefix {
+  color: var(--diff-remove-border);
 }
 
 .line-context {
   background-color: var(--bg-primary);
 }
 
+.line-context .line-prefix {
+  opacity: 0.4;
+}
+
 /* Side-by-side Mode */
 .diff-side-by-side {
   display: flex;
   flex-direction: column;
-}
-
-.hunk-header-row {
-  display: flex;
-}
-
-.hunk-header.left,
-.hunk-header.right {
-  flex: 1;
-  background-color: var(--diff-hunk-bg);
-  color: var(--diff-hunk-text);
-  padding: 6px 12px;
-  font-weight: 400;
-  font-size: 12px;
-  line-height: 20px;
-  border: none;
-  position: sticky;
-  top: 0;
-  z-index: 10;
-}
-
-.hunk-header.left {
-  border-right: 1px solid var(--diff-line-border);
 }
 
 .hunk-lines {
@@ -365,6 +467,11 @@ function getLinePrefix(origin: string) {
   display: flex;
   min-height: 20px;
   border: none;
+  transition: background-color 0.1s ease;
+}
+
+.diff-row:hover .diff-cell.line-context {
+  background-color: var(--diff-context-hover);
 }
 
 .diff-cell {
@@ -376,26 +483,28 @@ function getLinePrefix(origin: string) {
 }
 
 .diff-cell.left {
-  border-right: 1px solid var(--diff-line-border);
+  border-right: 2px solid var(--diff-line-border);
 }
 
 .diff-cell .line-number {
-  width: 56px;
+  width: 50px;
   display: inline-flex;
   align-items: center;
   justify-content: flex-end;
-  padding: 0 10px;
+  padding: 0 8px;
   color: var(--diff-line-number);
-  background-color: var(--diff-gutter-bg);
+  background-color: transparent;
   border-right: 1px solid var(--diff-line-border);
   flex-shrink: 0;
   font-size: 12px;
   line-height: 20px;
+  user-select: none;
+  font-variant-numeric: tabular-nums;
 }
 
 .diff-cell .line-content {
   flex: 1;
-  padding: 0 16px;
+  padding: 0 10px;
   white-space: pre;
   overflow-x: auto;
   line-height: 20px;
@@ -406,9 +515,19 @@ function getLinePrefix(origin: string) {
   background-color: var(--diff-empty-bg);
 }
 
+.diff-cell.line-add {
+  background-color: var(--diff-add-bg);
+  color: var(--diff-add-text);
+}
+
 .diff-cell.line-add .line-number {
   background-color: var(--diff-add-gutter);
   color: var(--diff-line-number);
+}
+
+.diff-cell.line-remove {
+  background-color: var(--diff-remove-bg);
+  color: var(--diff-remove-text);
 }
 
 .diff-cell.line-remove .line-number {
@@ -416,8 +535,12 @@ function getLinePrefix(origin: string) {
   color: var(--diff-line-number);
 }
 
+.diff-cell.line-context {
+  background-color: var(--bg-primary);
+}
+
 .diff-cell.line-context .line-number {
-  background-color: var(--diff-gutter-bg);
+  background-color: transparent;
 }
 
 .loading,
@@ -428,24 +551,24 @@ function getLinePrefix(origin: string) {
   justify-content: center;
   height: 100%;
   color: var(--text-tertiary);
-  gap: var(--spacing-sm);
-  padding: var(--spacing-xl);
+  gap: 12px;
+  padding: 40px;
   text-align: center;
 }
 
 .no-diff-icon {
-  font-size: 3rem;
-  margin-bottom: var(--spacing-sm);
+  opacity: 0.4;
+  margin-bottom: 8px;
 }
 
 .no-diff-message {
-  font-size: var(--font-size-lg);
+  font-size: 16px;
   font-weight: 600;
   color: var(--text-secondary);
 }
 
 .no-diff-hint {
-  font-size: var(--font-size-sm);
+  font-size: 14px;
   color: var(--text-tertiary);
   max-width: 400px;
 }

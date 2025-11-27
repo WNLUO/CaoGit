@@ -69,6 +69,17 @@ pub fn unstage_file(repo_path: String, file_path: String) -> ApiResponse<String>
 }
 
 #[tauri::command]
+pub fn discard_file(repo_path: String, file_path: String) -> ApiResponse<String> {
+    match GitRepository::open(&repo_path) {
+        Ok(repo) => match repo.discard_file(&file_path) {
+            Ok(_) => ApiResponse::success("File changes discarded successfully".to_string()),
+            Err(e) => ApiResponse::error(e.to_string()),
+        },
+        Err(e) => ApiResponse::error(e.to_string()),
+    }
+}
+
+#[tauri::command]
 pub fn commit_changes(repo_path: String, message: String) -> ApiResponse<String> {
     match GitRepository::open(&repo_path) {
         Ok(repo) => match repo.commit(&message) {

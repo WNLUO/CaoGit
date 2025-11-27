@@ -193,6 +193,25 @@ impl GitRepository {
         Ok(())
     }
 
+    pub fn discard_file(&self, path: &str) -> Result<()> {
+        // This restores the file to HEAD state (discards working directory changes)
+        let head = self.repo.head()?;
+        let head_commit = head.peel_to_commit()?;
+        let head_tree = head_commit.tree()?;
+
+        // Checkout the file from HEAD
+        self.repo.checkout_tree(
+            head_tree.as_object(),
+            Some(
+                git2::build::CheckoutBuilder::new()
+                    .path(Path::new(path))
+                    .force()
+            ),
+        )?;
+
+        Ok(())
+    }
+
     pub fn commit(&self, message: &str) -> Result<String> {
         let signature = self.repo.signature()?;
         let mut index = self.repo.index()?;

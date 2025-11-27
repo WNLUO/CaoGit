@@ -54,6 +54,10 @@ export class GitApi {
         return await safeInvoke('unstage_file', { repoPath, filePath });
     }
 
+    static async discardFile(repoPath: string, filePath: string): Promise<ApiResponse<string>> {
+        return await safeInvoke('discard_file', { repoPath, filePath });
+    }
+
     static async commitChanges(repoPath: string, message: string): Promise<ApiResponse<string>> {
         return await safeInvoke('commit_changes', { repoPath, message });
     }

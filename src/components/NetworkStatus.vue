@@ -192,8 +192,9 @@ defineExpose({
   border-radius: var(--radius-sm);
   font-size: var(--font-size-xs);
   color: var(--text-secondary);
-  min-width: 240px;
-  white-space: nowrap;
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .network-status.disabled {
@@ -229,8 +230,9 @@ defineExpose({
   display: flex;
   flex-direction: column;
   align-items: center;
-  flex: 1;
-  min-width: 0;
+  flex: 1 1 0;
+  min-width: 50px;
+  max-width: 100px;
 }
 
 .stat-label {
@@ -238,6 +240,10 @@ defineExpose({
   color: var(--text-tertiary);
   margin-bottom: 1px;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  width: 100%;
+  text-align: center;
 }
 
 .stat-value {
@@ -247,7 +253,8 @@ defineExpose({
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 100%;
+  width: 100%;
+  text-align: center;
 }
 
 .stat-value.error {

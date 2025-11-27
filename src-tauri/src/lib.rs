@@ -13,6 +13,7 @@ pub fn run() {
             get_repository_status,
             stage_file,
             unstage_file,
+            discard_file,
             commit_changes,
             get_commits,
             get_branches,

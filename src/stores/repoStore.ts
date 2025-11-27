@@ -154,6 +154,17 @@ export const repoStore = reactive({
         }
     },
 
+    async discardFile(filePath: string) {
+        if (!this.activeRepo) return;
+
+        const response = await GitApi.discardFile(this.activeRepo.path, filePath);
+        if (response.success) {
+            await this.refreshStatus();
+        } else {
+            throw new Error(response.error || 'Failed to discard file changes');
+        }
+    },
+
     async commit(message: string) {
         if (!this.activeRepo) return;
 
@@ -230,5 +241,39 @@ export const repoStore = reactive({
         if (this.activeRepo) {
             cacheService.invalidatePattern(`.*:${this.activeRepo.path}:.*`);
         }
+    },
+
+    // Update file diff status (for Qoder-style status tracking)
+    updateFileDiffStatus(filePath: string, status: FileChange['diffStatus']) {
+        const file = this.fileChanges.find(f => f.path === filePath);
+        if (file) {
+            file.diffStatus = status;
+        }
+    },
+
+    // Update file stats (for displaying addition/deletion counts)
+    updateFileStats(filePath: string, stats: FileChange['stats']) {
+        const file = this.fileChanges.find(f => f.path === filePath);
+        if (file) {
+            file.stats = stats;
+        }
+    },
+
+    // Get next file in the list (for navigation)
+    getNextFile(currentFile: FileChange): FileChange | null {
+        const currentIndex = this.fileChanges.findIndex(f => f.path === currentFile.path);
+        if (currentIndex >= 0 && currentIndex < this.fileChanges.length - 1) {
+            return this.fileChanges[currentIndex + 1];
+        }
+        return null;
+    },
+
+    // Get previous file in the list (for navigation)
+    getPrevFile(currentFile: FileChange): FileChange | null {
+        const currentIndex = this.fileChanges.findIndex(f => f.path === currentFile.path);
+        if (currentIndex > 0) {
+            return this.fileChanges[currentIndex - 1];
+        }
+        return null;
     }
 });

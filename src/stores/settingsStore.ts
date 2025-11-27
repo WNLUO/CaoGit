@@ -26,10 +26,18 @@ export interface GitPlatformsSettings {
   gitee: PlatformAccount;
 }
 
+export interface LayoutSettings {
+  sidebarWidth: number;      // Sidebar 宽度（px）
+  leftPanelWidth: number;    // 左面板宽度（px）
+  rightPanelTopHeight: number; // 右上面板高度百分比（0-100）
+  commitSectionHeight: number; // 提交信息框高度（px）
+}
+
 export interface GlobalSettings {
   proxy: ProxySettings;
   networkTest: NetworkTestSettings;
   gitPlatforms: GitPlatformsSettings;
+  layout: LayoutSettings;
 }
 
 const DEFAULT_SETTINGS: GlobalSettings = {
@@ -61,6 +69,12 @@ const DEFAULT_SETTINGS: GlobalSettings = {
       token: '',
       username: ''
     }
+  },
+  layout: {
+    sidebarWidth: 240,
+    leftPanelWidth: 320,
+    rightPanelTopHeight: 60,
+    commitSectionHeight: 200
   }
 };
 
@@ -106,5 +120,10 @@ export const settingsStore = reactive({
   updatePlatformAccount(platform: 'github' | 'gitlab' | 'gitee', account: Partial<PlatformAccount>) {
     this.settings.gitPlatforms[platform] = { ...this.settings.gitPlatforms[platform], ...account };
     this.saveSettings({ gitPlatforms: this.settings.gitPlatforms });
+  },
+
+  updateLayoutSettings(layout: Partial<LayoutSettings>) {
+    this.settings.layout = { ...this.settings.layout, ...layout };
+    this.saveSettings({ layout: this.settings.layout });
   }
 });
