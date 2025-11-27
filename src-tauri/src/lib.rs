@@ -47,6 +47,7 @@ pub fn run() {
             abort_merge,
             set_window_theme,
             call_ai_api,
+            copy_to_clipboard,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

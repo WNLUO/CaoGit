@@ -629,3 +629,19 @@ pub async fn call_ai_api(
         Err(e) => ApiResponse::error(format!("Failed to call AI API: {}", e)),
     }
 }
+
+// Clipboard operations
+#[tauri::command]
+pub fn copy_to_clipboard(text: String) -> ApiResponse<String> {
+    use copypasta::ClipboardProvider;
+
+    let mut clipboard = match copypasta::ClipboardContext::new() {
+        Ok(clipboard) => clipboard,
+        Err(e) => return ApiResponse::error(format!("Failed to access clipboard: {}", e)),
+    };
+
+    match clipboard.set_contents(text.clone()) {
+        Ok(_) => ApiResponse::success(format!("Copied to clipboard: {}", text)),
+        Err(e) => ApiResponse::error(format!("Failed to copy to clipboard: {}", e)),
+    }
+}

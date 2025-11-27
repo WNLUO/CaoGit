@@ -31,4 +31,5 @@ home = "0.5"
 lazy_static = "1.4"
 lru = "0.12"
 reqwest = { version = "0.11", features = ["json"] }
+copypasta = "0.10"
 

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue';
 import { repoStore } from '../stores/repoStore';
+import { toastStore } from '../stores/toastStore';
 import { GitApi } from '../services/gitApi';
 import PublishModal from './PublishModal.vue';
 import ThemeToggle from './ThemeToggle.vue';
@@ -72,10 +73,10 @@ async function handlePull() {
       await repoStore.loadRepoData(repoStore.activeRepo);
     } else {
       // 只在失败时显示 alert
-      alert('Pull 失败: ' + response.error);
+      toastStore.error('Pull 失败: ' + response.error);
     }
   } catch (error: any) {
-    alert('Pull 失败: ' + error.message);
+    toastStore.error('Pull 失败: ' + error.message);
   } finally {
     isPulling.value = false;
     showProgress.value = false;

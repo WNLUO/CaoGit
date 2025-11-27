@@ -191,20 +191,20 @@ async function doCommit() {
 
 async function generateAICommitMessage() {
   if (!repoStore.activeRepo) {
-    alert('请先打开一个仓库');
+    toastStore.warning('请先打开一个仓库');
     return;
   }
 
   // 检查是否有变更的文件（暂存或未暂存）
   if (repoStore.fileChanges.length === 0) {
-    alert('没有文件变更，无需生成提交信息');
+    toastStore.info('没有文件变更，无需生成提交信息');
     return;
   }
 
   // Load AI settings
   const savedSettings = localStorage.getItem('ai_settings');
   if (!savedSettings) {
-    alert('请先配置 AI 设置');
+    toastStore.warning('请先配置 AI 设置');
     showAISettings.value = true;
     return;
   }
@@ -215,7 +215,7 @@ async function generateAICommitMessage() {
     const settings: AISettings = JSON.parse(savedSettings);
 
     if (!settings.apiKey) {
-      alert('请先配置 API Key');
+      toastStore.warning('请先配置 API Key');
       showAISettings.value = true;
       isGeneratingAI.value = false;
       return;
@@ -294,7 +294,7 @@ async function generateAICommitMessage() {
   } catch (error: any) {
     console.error('AI 生成失败:', error);
     commitMessage.value = '';
-    alert('AI 生成失败: ' + error.message);
+    toastStore.error('AI 生成失败: ' + error.message);
   } finally {
     isGeneratingAI.value = false;
   }

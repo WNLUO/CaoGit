@@ -2,11 +2,13 @@
 import { ref, computed, onMounted } from 'vue';
 import { repoStore } from '../stores/repoStore';
 import { settingsStore } from '../stores/settingsStore';
+import { toastStore } from '../stores/toastStore';
 import { GitApi } from '../services/gitApi';
 import type { Repository } from '../types';
 import AddRepoModal from './AddRepoModal.vue';
 import NetworkStatus from './NetworkStatus.vue';
 import ContextMenu from './ContextMenu.vue';
+import { invoke } from '@tauri-apps/api/core';
 
 const activeRepoId = ref(1);
 const showAddRepoModal = ref(false);
@@ -156,14 +158,15 @@ function removeRepository() {
   }
 }
 
-function copyRepositoryLink() {
+async function copyRepositoryLink() {
   if (!contextMenuRepo.value) return;
 
   // 优先复制远程仓库 URL，如果没有则复制本地路径
   const repo = contextMenuRepo.value;
 
-  // 尝试从 GitApi 获取远程 URL
-  GitApi.getRemotes(repo.path).then((response) => {
+  try {
+    // 尝试从 GitApi 获取远程 URL
+    const response = await GitApi.getRemotes(repo.path);
     let linkToCopy = repo.path; // 默认复制本地路径
 
     if (response.success && response.data && response.data.length > 0) {
@@ -173,60 +176,21 @@ function copyRepositoryLink() {
     }
 
     // 使用可靠的复制方法
-    copyToClipboardReliable(linkToCopy);
-  }).catch(() => {
+    await copyToClipboardReliable(linkToCopy);
+  } catch (error) {
     // 如果获取远程失败，就复制本地路径
-    copyToClipboardReliable(repo.path);
-  });
-}
-
-function copyToClipboardReliable(text: string) {
-  // 方法 1: 尝试使用现代 Clipboard API
-  if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
-    navigator.clipboard.writeText(text)
-      .then(() => {
-        console.log(`✓ 已复制: ${text}`);
-      })
-      .catch(() => {
-        // 如果 Clipboard API 失败，使用备用方法
-        fallbackCopyToClipboard(text);
-      });
-  } else {
-    // 直接使用备用方法
-    fallbackCopyToClipboard(text);
+    await copyToClipboardReliable(repo.path);
   }
 }
 
-function fallbackCopyToClipboard(text: string) {
+async function copyToClipboardReliable(text: string) {
   try {
-    // 创建一个隐藏的 textarea
-    const textarea = document.createElement('textarea');
-    textarea.style.position = 'fixed';
-    textarea.style.top = '0';
-    textarea.style.left = '0';
-    textarea.style.opacity = '0';
-    textarea.style.pointerEvents = 'none';
-    textarea.value = text;
-
-    document.body.appendChild(textarea);
-
-    // 选中文本
-    textarea.select();
-    textarea.setSelectionRange(0, text.length);
-
-    // 复制
-    const success = document.execCommand('copy');
-
-    // 移除 textarea
-    document.body.removeChild(textarea);
-
-    if (success) {
-      console.log(`✓ 已复制: ${text}`);
-    } else {
-      console.error('复制失败: execCommand 返回 false');
-    }
+    // 使用 Tauri 的 invoke 命令调用 Rust 后端的剪贴板功能
+    await invoke('copy_to_clipboard', { text });
+    toastStore.success(`已复制`);
   } catch (error) {
     console.error('复制失败:', error);
+    toastStore.error('复制失败，请重试');
   }
 }
 
