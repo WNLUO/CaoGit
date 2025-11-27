@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
 import { repoStore } from '../stores/repoStore';
+import { toastStore } from '../stores/toastStore';
 import type { FileChange } from '../types';
 import AISettingsModal, { type AISettings } from './AISettingsModal.vue';
 import FileIcon from './FileIcon.vue';
@@ -40,7 +41,7 @@ async function toggleStage(file: FileChange) {
       repoStore.selectedFile = null;
     }
   } catch (error: any) {
-    alert('操作失败: ' + error.message);
+    toastStore.error('操作失败: ' + error.message);
   }
 }
 
@@ -53,7 +54,7 @@ async function stageAll() {
       unstagedFiles.value.map(file => repoStore.stageFile(file.path))
     );
   } catch (error: any) {
-    alert('暂存失败: ' + error.message);
+    toastStore.error('暂存失败: ' + error.message);
   }
 }
 
@@ -66,7 +67,7 @@ async function unstageAll() {
       stagedFiles.value.map(file => repoStore.unstageFile(file.path))
     );
   } catch (error: any) {
-    alert('取消暂存失败: ' + error.message);
+    toastStore.error('取消暂存失败: ' + error.message);
   }
 }
 
@@ -103,7 +104,7 @@ async function discardFile(file: FileChange, event?: Event) {
     }
   } catch (error: any) {
     console.error('丢弃文件失败:', error);
-    alert('丢弃更改失败: ' + error.message);
+    toastStore.error('丢弃更改失败: ' + error.message);
   }
 }
 
@@ -138,7 +139,7 @@ async function discardAllUnstaged(event?: Event) {
     repoStore.selectedFile = null;
   } catch (error: any) {
     console.error('批量丢弃失败:', error);
-    alert('丢弃更改失败: ' + error.message);
+    toastStore.error('丢弃更改失败: ' + error.message);
   }
 }
 
@@ -148,12 +149,12 @@ function selectFile(file: FileChange) {
 
 async function doCommit() {
   if (!commitMessage.value.trim()) {
-    alert('请输入提交信息');
+    toastStore.warning('请输入提交信息');
     return;
   }
 
   if (!repoStore.activeRepo) {
-    alert('请先打开一个仓库');
+    toastStore.warning('请先打开一个仓库');
     return;
   }
 
@@ -165,14 +166,14 @@ async function doCommit() {
         unstagedFiles.value.map(file => repoStore.stageFile(file.path))
       );
     } catch (error: any) {
-      alert('自动暂存文件失败: ' + error.message);
+      toastStore.error('自动暂存文件失败: ' + error.message);
       return;
     }
   }
 
   // 再次检查是否有暂存的文件
   if (stagedFiles.value.length === 0) {
-    alert('没有文件需要提交');
+    toastStore.warning('没有文件需要提交');
     return;
   }
 

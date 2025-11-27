@@ -8,7 +8,9 @@ import SettingsModal from "./components/SettingsModal.vue";
 import DebugErrorDialog from "./components/DebugErrorDialog.vue";
 import AddRepoModal from "./components/AddRepoModal.vue";
 import Resizer from "./components/Resizer.vue";
+import Toast from "./components/Toast.vue";
 import { settingsStore } from "./stores/settingsStore";
+import { toastStore } from "./stores/toastStore";
 import type { Repository } from "./types";
 
 const isSettingsOpen = ref(false);
@@ -116,6 +118,12 @@ function handleSidebarResize(delta: number) {
     />
 
     <DebugErrorDialog />
+
+    <!-- Toast Notifications -->
+    <Toast
+      :messages="toastStore.messages"
+      @remove="toastStore.remove"
+    />
   </div>
 </template>
 

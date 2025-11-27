@@ -156,7 +156,85 @@ function removeRepository() {
   }
 }
 
+function copyRepositoryLink() {
+  if (!contextMenuRepo.value) return;
+
+  // 优先复制远程仓库 URL，如果没有则复制本地路径
+  const repo = contextMenuRepo.value;
+
+  // 尝试从 GitApi 获取远程 URL
+  GitApi.getRemotes(repo.path).then((response) => {
+    let linkToCopy = repo.path; // 默认复制本地路径
+
+    if (response.success && response.data && response.data.length > 0) {
+      // 优先使用 origin 远程，其次使用第一个远程
+      const origin = response.data.find((r: any) => r.name === 'origin');
+      linkToCopy = origin?.url || response.data[0]?.url || repo.path;
+    }
+
+    // 使用可靠的复制方法
+    copyToClipboardReliable(linkToCopy);
+  }).catch(() => {
+    // 如果获取远程失败，就复制本地路径
+    copyToClipboardReliable(repo.path);
+  });
+}
+
+function copyToClipboardReliable(text: string) {
+  // 方法 1: 尝试使用现代 Clipboard API
+  if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+    navigator.clipboard.writeText(text)
+      .then(() => {
+        console.log(`✓ 已复制: ${text}`);
+      })
+      .catch(() => {
+        // 如果 Clipboard API 失败，使用备用方法
+        fallbackCopyToClipboard(text);
+      });
+  } else {
+    // 直接使用备用方法
+    fallbackCopyToClipboard(text);
+  }
+}
+
+function fallbackCopyToClipboard(text: string) {
+  try {
+    // 创建一个隐藏的 textarea
+    const textarea = document.createElement('textarea');
+    textarea.style.position = 'fixed';
+    textarea.style.top = '0';
+    textarea.style.left = '0';
+    textarea.style.opacity = '0';
+    textarea.style.pointerEvents = 'none';
+    textarea.value = text;
+
+    document.body.appendChild(textarea);
+
+    // 选中文本
+    textarea.select();
+    textarea.setSelectionRange(0, text.length);
+
+    // 复制
+    const success = document.execCommand('copy');
+
+    // 移除 textarea
+    document.body.removeChild(textarea);
+
+    if (success) {
+      console.log(`✓ 已复制: ${text}`);
+    } else {
+      console.error('复制失败: execCommand 返回 false');
+    }
+  } catch (error) {
+    console.error('复制失败:', error);
+  }
+}
+
 const contextMenuItems = computed(() => [
+  {
+    label: '复制项目链接',
+    action: copyRepositoryLink
+  },
   {
     label: '从列表中移除',
     action: removeRepository,
