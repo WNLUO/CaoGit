@@ -1,9 +1,12 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
 import { repoStore } from '../stores/repoStore';
+import { GitApi } from '../services/gitApi';
 import VirtualScroller from './VirtualScroller.vue';
 import CommitFilter from './CommitFilter.vue';
+import ContextMenu from './ContextMenu.vue';
 import type { FilterOptions } from './CommitFilter.vue';
+import type { CommitInfo } from '../types';
 
 const isLoadingMore = ref(false);
 const filterOptions = ref<FilterOptions>({
@@ -13,6 +16,22 @@ const filterOptions = ref<FilterOptions>({
   dateTo: '',
   branch: ''
 });
+
+// Context menu state
+const contextMenu = ref<{
+  show: boolean;
+  x: number;
+  y: number;
+  commit: CommitInfo | null;
+}>({
+  show: false,
+  x: 0,
+  y: 0,
+  commit: null
+});
+
+// Multi-selection state
+const selectedCommits = ref<Set<string>>(new Set());
 
 const branchNames = computed(() => {
   return repoStore.branches.map(b => b.name);
@@ -53,6 +72,30 @@ const filteredCommits = computed(() => {
   return commits;
 });
 
+const contextMenuItems = computed(() => {
+  if (!contextMenu.value.commit) return [];
+
+  const hasMultipleSelected = selectedCommits.value.size > 1;
+
+  return [
+    {
+      label: hasMultipleSelected ? `Cherry-pick ${selectedCommits.value.size} 提交` : 'Cherry-pick 此提交',
+      icon: '🍒',
+      action: () => cherryPickCommits()
+    },
+    {
+      label: '复制提交哈希',
+      icon: '📋',
+      action: () => copyCommitHash(contextMenu.value.commit!.hash)
+    },
+    {
+      label: '复制提交信息',
+      icon: '📝',
+      action: () => copyCommitMessage(contextMenu.value.commit!.message)
+    }
+  ];
+});
+
 function formatDate(dateStr: string) {
   const date = new Date(dateStr);
   return date.toLocaleString('zh-CN', {
@@ -80,6 +123,95 @@ async function loadMoreCommits() {
 
 function handleFilter(options: FilterOptions) {
   filterOptions.value = options;
+}
+
+function handleCommitClick(commit: CommitInfo, event: MouseEvent) {
+  if (event.ctrlKey || event.metaKey) {
+    // Multi-select with Ctrl/Cmd
+    if (selectedCommits.value.has(commit.hash)) {
+      selectedCommits.value.delete(commit.hash);
+    } else {
+      selectedCommits.value.add(commit.hash);
+    }
+  } else {
+    // Single select
+    selectedCommits.value.clear();
+    selectedCommits.value.add(commit.hash);
+  }
+}
+
+function handleContextMenu(commit: CommitInfo, event: MouseEvent) {
+  event.preventDefault();
+
+  // If right-clicked commit is not in selection, make it the only selection
+  if (!selectedCommits.value.has(commit.hash)) {
+    selectedCommits.value.clear();
+    selectedCommits.value.add(commit.hash);
+  }
+
+  contextMenu.value = {
+    show: true,
+    x: event.clientX,
+    y: event.clientY,
+    commit
+  };
+}
+
+function closeContextMenu() {
+  contextMenu.value.show = false;
+}
+
+async function cherryPickCommits() {
+  if (!repoStore.activeRepo) return;
+
+  const commits = Array.from(selectedCommits.value);
+
+  try {
+    if (commits.length === 1) {
+      const result = await GitApi.cherryPick(repoStore.activeRepo.path, commits[0]);
+      if (result.success && result.data) {
+        alert(result.data);
+        await Promise.all([
+          repoStore.refreshStatus(),
+          repoStore.refreshCommits(),
+          repoStore.refreshBranches()
+        ]);
+      } else {
+        alert(`Cherry-pick 失败: ${result.error}`);
+      }
+    } else {
+      const result = await GitApi.cherryPickBatch(repoStore.activeRepo.path, commits);
+      if (result.success && result.data) {
+        alert(`批量 Cherry-pick 结果:\n${result.data.join('\n')}`);
+        await Promise.all([
+          repoStore.refreshStatus(),
+          repoStore.refreshCommits(),
+          repoStore.refreshBranches()
+        ]);
+      } else {
+        alert(`批量 Cherry-pick 失败: ${result.error}`);
+      }
+    }
+  } catch (error) {
+    console.error('Cherry-pick failed:', error);
+    alert(`Cherry-pick 错误: ${error}`);
+  } finally {
+    selectedCommits.value.clear();
+  }
+}
+
+function copyCommitHash(hash: string) {
+  navigator.clipboard.writeText(hash);
+  alert(`已复制提交哈希: ${hash.substring(0, 7)}`);
+}
+
+function copyCommitMessage(message: string) {
+  navigator.clipboard.writeText(message);
+  alert('已复制提交信息');
+}
+
+function isCommitSelected(hash: string) {
+  return selectedCommits.value.has(hash);
 }
 </script>
 
@@ -123,7 +255,12 @@ function handleFilter(options: FilterOptions) {
         @load-more="loadMoreCommits"
       >
         <template #default="{ item: commit }">
-          <div class="commit-row">
+          <div
+            class="commit-row"
+            :class="{ selected: isCommitSelected(commit.hash) }"
+            @click="handleCommitClick(commit, $event)"
+            @contextmenu="handleContextMenu(commit, $event)"
+          >
             <div class="col-graph">
               <span class="graph-node">●</span>
               <div class="graph-line"></div>
@@ -140,6 +277,14 @@ function handleFilter(options: FilterOptions) {
         加载更多提交...
       </div>
     </div>
+
+    <ContextMenu
+      v-if="contextMenu.show"
+      :items="contextMenuItems"
+      :x="contextMenu.x"
+      :y="contextMenu.y"
+      @close="closeContextMenu"
+    />
   </div>
 </template>
 
@@ -149,6 +294,7 @@ function handleFilter(options: FilterOptions) {
   display: flex;
   flex-direction: column;
   background-color: var(--bg-primary);
+  overflow: hidden;
 }
 
 .history-header {
@@ -174,6 +320,7 @@ function handleFilter(options: FilterOptions) {
   flex: 1;
   overflow: hidden;
   position: relative;
+  min-height: 0;
 }
 
 .commit-row {
@@ -188,6 +335,18 @@ function handleFilter(options: FilterOptions) {
 
 .commit-row:hover {
   background-color: var(--bg-secondary);
+}
+
+.commit-row.selected {
+  background-color: var(--accent-color);
+  color: white;
+}
+
+.commit-row.selected .col-message,
+.commit-row.selected .col-author,
+.commit-row.selected .col-date,
+.commit-row.selected .col-hash {
+  color: white;
 }
 
 .col-graph {

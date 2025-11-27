@@ -35,6 +35,15 @@ export interface Commit {
     parents: string[];
 }
 
+export interface CommitInfo {
+    hash: string;
+    message: string;
+    author: string;
+    email: string;
+    date: string;
+    parents: string[];
+}
+
 export interface BlameLine {
     line_number: number;
     commit_hash: string;
@@ -42,4 +51,11 @@ export interface BlameLine {
     author_email: string;
     date: string;
     content: string;
+}
+
+export interface ConflictInfo {
+    path: string;
+    ours: string;
+    theirs: string;
+    base?: string;
 }

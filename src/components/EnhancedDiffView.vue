@@ -142,7 +142,9 @@ function getLinePrefix(origin: string) {
   display: flex;
   flex-direction: column;
   height: 100%;
+  width: 100%;
   background-color: var(--bg-primary);
+  overflow: hidden;
 }
 
 .diff-header {
@@ -152,12 +154,20 @@ function getLinePrefix(origin: string) {
   padding: var(--spacing-sm) var(--spacing-md);
   border-bottom: 1px solid var(--border-color);
   background-color: var(--bg-secondary);
+  flex-shrink: 0;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .file-info {
   font-size: var(--font-size-sm);
   font-weight: 600;
   color: var(--text-primary);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex-shrink: 1;
 }
 
 .no-selection {
@@ -166,109 +176,159 @@ function getLinePrefix(origin: string) {
 
 .diff-controls {
   display: flex;
-  gap: var(--spacing-xs);
+  gap: 0;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  flex-shrink: 0;
 }
 
 .diff-controls button {
-  padding: 4px 12px;
-  font-size: var(--font-size-xs);
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--border-color);
-  background-color: var(--bg-primary);
+  padding: 5px 12px;
+  font-size: 12px;
+  border: none;
+  border-right: 1px solid var(--border-color);
+  background-color: var(--bg-secondary);
   color: var(--text-secondary);
+  transition: all var(--transition-fast);
+}
+
+.diff-controls button:last-child {
+  border-right: none;
+}
+
+.diff-controls button:hover {
+  background-color: var(--bg-hover);
+  color: var(--text-primary);
 }
 
 .diff-controls button.active {
-  background-color: var(--accent-color);
-  color: white;
-  border-color: var(--accent-color);
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  font-weight: 500;
 }
 
 .diff-content {
   flex: 1;
   overflow: auto;
-  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+  font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Code', 'Fira Mono', 'Droid Sans Mono', 'Source Code Pro', 'Consolas', 'Courier New', monospace;
   font-size: 13px;
-  line-height: 1.5;
+  line-height: 20px;
+  background-color: var(--bg-primary);
+  min-height: 0;
+}
+
+.diff-content::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.diff-content::-webkit-scrollbar-track {
+  background: var(--bg-primary);
+}
+
+.diff-content::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 5px;
+}
+
+.diff-content::-webkit-scrollbar-thumb:hover {
+  background: var(--text-tertiary);
 }
 
 .hunk {
-  margin-bottom: var(--spacing-md);
+  margin-bottom: 0;
 }
 
 .hunk-header {
-  background-color: #f0f6ff;
-  color: #1e40af;
-  padding: 4px 8px;
-  font-weight: 600;
-  border-top: 1px solid #dbeafe;
-  border-bottom: 1px solid #dbeafe;
+  background-color: var(--diff-hunk-bg);
+  color: var(--diff-hunk-text);
+  padding: 6px 12px;
+  font-weight: 400;
+  font-size: 12px;
+  line-height: 20px;
+  border: none;
+  position: sticky;
+  top: 0;
+  z-index: 10;
 }
 
 /* Inline Mode */
 .diff-inline {
-  padding: var(--spacing-sm);
+  padding: 0;
 }
 
 .diff-line {
   display: flex;
   align-items: stretch;
-  border-bottom: 1px solid #f3f4f6;
+  min-height: 20px;
+  border: none;
+  position: relative;
+}
+
+.diff-line:hover .line-number {
+  opacity: 1;
 }
 
 .line-number {
-  display: inline-block;
-  width: 50px;
-  text-align: right;
-  padding: 0 8px;
-  color: #9ca3af;
-  background-color: #f9fafb;
-  border-right: 1px solid #e5e7eb;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  width: 56px;
+  padding: 0 10px;
+  color: var(--diff-line-number);
+  background-color: var(--diff-gutter-bg);
   user-select: none;
   flex-shrink: 0;
+  font-size: 12px;
+  line-height: 20px;
+  border: none;
 }
 
 .old-number {
-  border-right: none;
+  border-right: 1px solid var(--diff-line-border);
 }
 
 .new-number {
-  margin-right: 8px;
+  border-right: 1px solid var(--diff-line-border);
 }
 
 .line-content {
   flex: 1;
-  padding: 0 8px;
-  white-space: pre-wrap;
-  word-break: break-all;
+  padding: 0 16px;
+  white-space: pre;
+  overflow-x: auto;
+  line-height: 20px;
+  min-width: 0;
 }
 
 .line-prefix {
   display: inline-block;
-  width: 20px;
-  font-weight: bold;
+  width: 16px;
+  font-weight: normal;
+  opacity: 0.6;
 }
 
 .line-add {
-  background-color: #dcfce7;
-  color: #166534;
+  background-color: var(--diff-add-bg);
+  color: var(--diff-add-text);
 }
 
 .line-add .line-number {
-  background-color: #bbf7d0;
+  background-color: var(--diff-add-gutter);
 }
 
 .line-remove {
-  background-color: #fee2e2;
-  color: #991b1b;
+  background-color: var(--diff-remove-bg);
+  color: var(--diff-remove-text);
 }
 
 .line-remove .line-number {
-  background-color: #fecaca;
+  background-color: var(--diff-remove-gutter);
 }
 
 .line-context {
-  background-color: white;
+  background-color: var(--bg-primary);
 }
 
 /* Side-by-side Mode */
@@ -284,16 +344,20 @@ function getLinePrefix(origin: string) {
 .hunk-header.left,
 .hunk-header.right {
   flex: 1;
-  background-color: #f0f6ff;
-  color: #1e40af;
-  padding: 4px 8px;
-  font-weight: 600;
-  border-top: 1px solid #dbeafe;
-  border-bottom: 1px solid #dbeafe;
+  background-color: var(--diff-hunk-bg);
+  color: var(--diff-hunk-text);
+  padding: 6px 12px;
+  font-weight: 400;
+  font-size: 12px;
+  line-height: 20px;
+  border: none;
+  position: sticky;
+  top: 0;
+  z-index: 10;
 }
 
 .hunk-header.left {
-  border-right: 1px solid #dbeafe;
+  border-right: 1px solid var(--diff-line-border);
 }
 
 .hunk-lines {
@@ -303,38 +367,61 @@ function getLinePrefix(origin: string) {
 
 .diff-row {
   display: flex;
-  border-bottom: 1px solid #f3f4f6;
+  min-height: 20px;
+  border: none;
 }
 
 .diff-cell {
   flex: 1;
   display: flex;
   align-items: stretch;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .diff-cell.left {
-  border-right: 2px solid #e5e7eb;
+  border-right: 1px solid var(--diff-line-border);
 }
 
 .diff-cell .line-number {
-  width: 50px;
-  text-align: right;
-  padding: 0 8px;
-  color: #9ca3af;
-  background-color: #f9fafb;
-  border-right: 1px solid #e5e7eb;
+  width: 56px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 0 10px;
+  color: var(--diff-line-number);
+  background-color: var(--diff-gutter-bg);
+  border-right: 1px solid var(--diff-line-border);
   flex-shrink: 0;
+  font-size: 12px;
+  line-height: 20px;
 }
 
 .diff-cell .line-content {
   flex: 1;
-  padding: 0 8px;
-  white-space: pre-wrap;
-  word-break: break-all;
+  padding: 0 16px;
+  white-space: pre;
+  overflow-x: auto;
+  line-height: 20px;
+  min-width: 0;
 }
 
 .diff-cell.empty {
-  background-color: #f9fafb;
+  background-color: var(--diff-empty-bg);
+}
+
+.diff-cell.line-add .line-number {
+  background-color: var(--diff-add-gutter);
+  color: var(--diff-line-number);
+}
+
+.diff-cell.line-remove .line-number {
+  background-color: var(--diff-remove-gutter);
+  color: var(--diff-line-number);
+}
+
+.diff-cell.line-context .line-number {
+  background-color: var(--diff-gutter-bg);
 }
 
 .loading,

@@ -241,6 +241,7 @@ function getStatusColor(status: FileChange['status']) {
   display: flex;
   height: 100%;
   overflow: hidden;
+  min-width: 0;
 }
 
 .changes-panel {
@@ -249,6 +250,7 @@ function getStatusColor(status: FileChange['status']) {
   flex-direction: column;
   height: 100%;
   background-color: var(--bg-secondary);
+  min-width: 0;
 }
 
 .files-section {
@@ -256,6 +258,7 @@ function getStatusColor(status: FileChange['status']) {
   overflow-y: auto;
   display: flex;
   flex-direction: column;
+  min-height: 0;
 }
 
 .section-header {
@@ -266,10 +269,13 @@ function getStatusColor(status: FileChange['status']) {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  flex-shrink: 0;
 }
 
 .file-groups {
   padding: var(--spacing-sm);
+  overflow-y: auto;
+  flex: 1;
 }
 
 .group-header {

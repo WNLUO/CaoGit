@@ -1,4 +1,5 @@
 import { reactive } from 'vue';
+import { GitApi } from '../services/gitApi';
 
 export type Theme = 'light' | 'dark' | 'auto';
 
@@ -37,10 +38,17 @@ export const themeStore = reactive<ThemeState>({
   effectiveTheme: calculateEffectiveTheme(loadTheme()),
 });
 
-// Apply theme to document
-export function applyTheme(theme: 'light' | 'dark') {
+// Apply theme to document and window
+export async function applyTheme(theme: 'light' | 'dark') {
   document.documentElement.setAttribute('data-theme', theme);
   themeStore.effectiveTheme = theme;
+
+  // Update native window theme (for macOS titlebar)
+  try {
+    await GitApi.setWindowTheme(theme);
+  } catch (error) {
+    console.warn('Failed to set window theme:', error);
+  }
 }
 
 // Set theme

@@ -119,7 +119,7 @@ watch(() => props.initialPath, async (newPath) => {
 </script>
 
 <template>
-  <div v-if="isOpen" class="modal-overlay" @click="handleClose">
+  <div v-if="isOpen" class="modal-overlay">
     <div class="modal-content" @click.stop>
       <div class="modal-header">
         <h3>初始化 Git 仓库</h3>

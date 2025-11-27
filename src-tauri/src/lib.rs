@@ -1,6 +1,5 @@
 mod git_ops;
 mod commands;
-mod repo_cache;
 
 use commands::*;
 
@@ -40,6 +39,12 @@ pub fn run() {
             init_repository,
             detect_project_type,
             get_file_blame,
+            cherry_pick,
+            cherry_pick_batch,
+            get_conflicts,
+            resolve_conflict,
+            abort_merge,
+            set_window_theme,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

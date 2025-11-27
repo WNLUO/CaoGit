@@ -469,7 +469,7 @@ function handleCancel() {
 </script>
 
 <template>
-  <div v-if="isOpen" class="modal-overlay" @click="handleCancel">
+  <div v-if="isOpen" class="modal-overlay">
     <div class="modal-content" @click.stop>
       <!-- Header -->
       <div class="modal-header">

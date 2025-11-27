@@ -179,15 +179,20 @@ const contextMenuItems = computed(() => [
 <style scoped>
 .sidebar {
   width: 260px;
+  min-width: 200px;
+  max-width: 260px;
   background-color: var(--bg-secondary);
   border-right: 1px solid var(--border-color);
   display: flex;
   flex-direction: column;
   height: 100%;
+  overflow: hidden;
+  flex-shrink: 0;
 }
 
 .sidebar-header {
   padding: var(--spacing-lg) var(--spacing-md);
+  flex-shrink: 0;
   /* border-bottom: 1px solid var(--border-color); */
 }
 
@@ -202,6 +207,7 @@ const contextMenuItems = computed(() => [
   flex: 1;
   overflow-y: auto;
   padding: 0 var(--spacing-sm);
+  min-height: 0;
 }
 
 .list-header {
@@ -334,6 +340,7 @@ li:hover .settings-icon-btn {
   flex-direction: column;
   gap: var(--spacing-sm);
   background-color: var(--bg-secondary);
+  flex-shrink: 0;
 }
 
 .settings-btn {

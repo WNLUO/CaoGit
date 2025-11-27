@@ -35,6 +35,7 @@ defineProps<{
   flex: 1;
   height: 100%;
   overflow: hidden;
+  min-width: 0;
 }
 
 .left-panel {
@@ -43,6 +44,7 @@ defineProps<{
   max-width: 400px;
   height: 100%;
   border-right: 1px solid var(--border-color);
+  flex-shrink: 0;
 }
 
 .right-panel {
@@ -51,12 +53,16 @@ defineProps<{
   flex-direction: column;
   height: 100%;
   overflow: hidden;
+  min-width: 0;
 }
 
 .top-pane {
   flex: 1;
   min-height: 0;
   border-bottom: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .bottom-pane {

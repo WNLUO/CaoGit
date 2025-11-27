@@ -22,6 +22,8 @@ export interface AISettings {
 
 const apiEndpoint = ref('https://api.openai.com/v1/chat/completions');
 const apiKey = ref('');
+const modelSelection = ref('gpt-4');
+const customModel = ref('');
 const model = ref('gpt-4');
 const systemPrompt = ref('你是一个专业的Git提交信息生成助手。请基于代码变更内容，生成简洁、清晰、符合规范的提交信息。提交信息应该：1. 使用祈使句 2. 首字母小写 3. 不超过50个字符 4. 描述做了什么，而不是怎么做的');
 const language = ref('zh-CN');
@@ -44,6 +46,17 @@ function loadSettings() {
       apiEndpoint.value = settings.apiEndpoint || apiEndpoint.value;
       apiKey.value = settings.apiKey || '';
       model.value = settings.model || model.value;
+
+      // 检查是否是预设模型
+      const presetModels = ['gpt-4', 'gpt-4-turbo', 'gpt-3.5-turbo', 'claude-3-opus', 'claude-3-sonnet'];
+      if (presetModels.includes(settings.model)) {
+        modelSelection.value = settings.model;
+        customModel.value = '';
+      } else {
+        modelSelection.value = 'custom';
+        customModel.value = settings.model || '';
+      }
+
       systemPrompt.value = settings.systemPrompt || systemPrompt.value;
       language.value = settings.language || language.value;
       temperature.value = settings.temperature || temperature.value;
@@ -55,10 +68,13 @@ function loadSettings() {
 }
 
 function save() {
+  // 确定最终使用的模型
+  const finalModel = modelSelection.value === 'custom' ? customModel.value : modelSelection.value;
+
   const settings: AISettings = {
     apiEndpoint: apiEndpoint.value,
     apiKey: apiKey.value,
-    model: model.value,
+    model: finalModel,
     systemPrompt: systemPrompt.value,
     language: language.value,
     temperature: temperature.value,
@@ -74,7 +90,7 @@ function save() {
 </script>
 
 <template>
-  <div v-if="isOpen" class="modal-overlay" @click="emit('close')">
+  <div v-if="isOpen" class="modal-overlay">
     <div class="modal-content" @click.stop>
       <div class="modal-header">
         <h3>AI 设置</h3>
@@ -98,7 +114,7 @@ function save() {
 
           <div class="input-group">
             <label>模型</label>
-            <select v-model="model">
+            <select v-model="modelSelection">
               <option value="gpt-4">GPT-4</option>
               <option value="gpt-4-turbo">GPT-4 Turbo</option>
               <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
@@ -108,9 +124,9 @@ function save() {
             </select>
           </div>
 
-          <div v-if="model === 'custom'" class="input-group">
+          <div v-if="modelSelection === 'custom'" class="input-group">
             <label>自定义模型名称</label>
-            <input v-model="model" type="text" placeholder="your-model-name">
+            <input v-model="customModel" type="text" placeholder="your-model-name">
           </div>
         </div>
 
@@ -191,9 +207,11 @@ function save() {
 .modal-content {
   background-color: var(--bg-primary);
   border-radius: var(--radius-lg);
-  width: 600px;
-  max-height: 80vh;
+  width: 90vw;
+  max-width: 600px;
+  max-height: 90vh;
   overflow-y: auto;
+  margin: var(--spacing-md);
   box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
 }
 

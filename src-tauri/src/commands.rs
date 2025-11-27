@@ -1,5 +1,6 @@
-use crate::git_ops::{GitRepository, FileChange, CommitInfo, BranchInfo, RemoteInfo, StashInfo, TagInfo, DiffResult, BlameLine};
+use crate::git_ops::{GitRepository, FileChange, CommitInfo, BranchInfo, RemoteInfo, StashInfo, TagInfo, DiffResult, BlameLine, ConflictInfo};
 use serde::Serialize;
+use tauri::{Window, Theme};
 
 #[derive(Debug, Serialize)]
 pub struct ApiResponse<T> {
@@ -327,7 +328,7 @@ pub fn clone_repository(url: String, path: String) -> ApiResponse<String> {
 #[tauri::command]
 pub fn init_repository(path: String, default_branch: Option<String>) -> ApiResponse<String> {
     match GitRepository::init(&path) {
-        Ok(repo) => {
+        Ok(_repo) => {
             // If a default branch name is specified, create and checkout that branch
             if let Some(branch_name) = default_branch {
                 if branch_name != "master" && branch_name != "main" {
@@ -464,6 +465,76 @@ pub fn get_file_blame(repo_path: String, file_path: String) -> ApiResponse<Vec<B
             Ok(blame) => ApiResponse::success(blame),
             Err(e) => ApiResponse::error(e.to_string()),
         },
+        Err(e) => ApiResponse::error(e.to_string()),
+    }
+}
+
+#[tauri::command]
+pub fn cherry_pick(repo_path: String, commit_hash: String) -> ApiResponse<String> {
+    match GitRepository::open(&repo_path) {
+        Ok(repo) => match repo.cherry_pick(&commit_hash) {
+            Ok(msg) => ApiResponse::success(msg),
+            Err(e) => ApiResponse::error(e.to_string()),
+        },
+        Err(e) => ApiResponse::error(e.to_string()),
+    }
+}
+
+#[tauri::command]
+pub fn cherry_pick_batch(repo_path: String, commit_hashes: Vec<String>) -> ApiResponse<Vec<String>> {
+    match GitRepository::open(&repo_path) {
+        Ok(repo) => match repo.cherry_pick_batch(commit_hashes) {
+            Ok(results) => ApiResponse::success(results),
+            Err(e) => ApiResponse::error(e.to_string()),
+        },
+        Err(e) => ApiResponse::error(e.to_string()),
+    }
+}
+
+#[tauri::command]
+pub fn get_conflicts(repo_path: String) -> ApiResponse<Vec<ConflictInfo>> {
+    match GitRepository::open(&repo_path) {
+        Ok(repo) => match repo.get_conflicts() {
+            Ok(conflicts) => ApiResponse::success(conflicts),
+            Err(e) => ApiResponse::error(e.to_string()),
+        },
+        Err(e) => ApiResponse::error(e.to_string()),
+    }
+}
+
+#[tauri::command]
+pub fn resolve_conflict(repo_path: String, file_path: String, resolution: String) -> ApiResponse<String> {
+    match GitRepository::open(&repo_path) {
+        Ok(repo) => match repo.resolve_conflict(&file_path, &resolution) {
+            Ok(_) => ApiResponse::success("Conflict resolved successfully".to_string()),
+            Err(e) => ApiResponse::error(e.to_string()),
+        },
+        Err(e) => ApiResponse::error(e.to_string()),
+    }
+}
+
+#[tauri::command]
+pub fn abort_merge(repo_path: String) -> ApiResponse<String> {
+    match GitRepository::open(&repo_path) {
+        Ok(repo) => match repo.abort_merge() {
+            Ok(_) => ApiResponse::success("Merge aborted successfully".to_string()),
+            Err(e) => ApiResponse::error(e.to_string()),
+        },
+        Err(e) => ApiResponse::error(e.to_string()),
+    }
+}
+
+// Window theme operations
+#[tauri::command]
+pub fn set_window_theme(window: Window, theme: String) -> ApiResponse<String> {
+    let tauri_theme = match theme.as_str() {
+        "dark" => Some(Theme::Dark),
+        "light" => Some(Theme::Light),
+        _ => None, // Auto/system theme
+    };
+
+    match window.set_theme(tauri_theme) {
+        Ok(_) => ApiResponse::success(format!("Window theme set to {}", theme)),
         Err(e) => ApiResponse::error(e.to_string()),
     }
 }

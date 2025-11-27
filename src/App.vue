@@ -108,6 +108,7 @@ function handleRepoAdded(_path: string) {
   height: 100vh;
   width: 100vw;
   overflow: hidden;
+  min-width: 0;
 }
 
 .main-content {
@@ -115,6 +116,8 @@ function handleRepoAdded(_path: string) {
   display: flex;
   flex-direction: column;
   background-color: var(--bg-primary);
+  min-width: 0;
+  overflow: hidden;
 }
 
 .content-area {
@@ -122,6 +125,8 @@ function handleRepoAdded(_path: string) {
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  min-width: 0;
+  min-height: 0;
 }
 
 .welcome-container {

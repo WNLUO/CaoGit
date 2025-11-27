@@ -139,6 +139,9 @@ async function createNewBranch() {
 
 <template>
   <header class="top-bar">
+    <!-- Draggable area for window -->
+    <div class="drag-region" data-tauri-drag-region></div>
+
     <div class="branch-info">
       <span class="label">当前分支:</span>
       <div class="branch-selector" @click="toggleBranchMenu">
@@ -239,6 +242,30 @@ async function createNewBranch() {
   justify-content: space-between;
   align-items: center;
   padding: 0 var(--spacing-lg);
+  position: relative;
+  flex-shrink: 0;
+  min-width: 0;
+  overflow: hidden;
+}
+
+/* Draggable region covering the entire top bar */
+.drag-region {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+  /* This makes the entire top bar draggable */
+}
+
+/* Ensure all interactive elements are above the drag region */
+.branch-info,
+.actions {
+  position: relative;
+  z-index: 1;
+  flex-shrink: 1;
+  min-width: 0;
 }
 
 .branch-info {
@@ -247,6 +274,8 @@ async function createNewBranch() {
   gap: var(--spacing-sm);
   font-size: var(--font-size-sm);
   color: var(--text-secondary);
+  flex-shrink: 1;
+  min-width: 0;
 }
 
 .label {
@@ -341,6 +370,8 @@ async function createNewBranch() {
   display: flex;
   gap: var(--spacing-sm);
   align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .separator {

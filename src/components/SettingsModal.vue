@@ -202,7 +202,7 @@ function save() {
 </script>
 
 <template>
-  <div v-if="isOpen" class="modal-overlay" @click="emit('close')">
+  <div v-if="isOpen" class="modal-overlay">
     <div class="modal-content" @click.stop>
       <div class="modal-header">
         <h3>{{ mode === 'global' ? '全局设置' : '仓库设置' }}</h3>
@@ -508,10 +508,12 @@ function save() {
 .modal-content {
   background-color: var(--bg-primary);
   border-radius: var(--radius-lg);
-  width: 450px;
-  max-height: 80vh;
+  width: 90vw;
+  max-width: 450px;
+  max-height: 90vh;
   overflow-y: auto;
   box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+  margin: var(--spacing-md);
 }
 
 .modal-header {

@@ -87,6 +87,14 @@ pub struct BlameLine {
     pub content: String,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ConflictInfo {
+    pub path: String,
+    pub ours: String,
+    pub theirs: String,
+    pub base: Option<String>,
+}
+
 pub struct GitRepository {
     repo: Repository,
 }
@@ -624,5 +632,162 @@ impl GitRepository {
         }
 
         Ok(results)
+    }
+
+    // Cherry-pick operations
+    pub fn cherry_pick(&self, commit_hash: &str) -> Result<String> {
+        let oid = git2::Oid::from_str(commit_hash)
+            .context(format!("Invalid commit hash: {}", commit_hash))?;
+        let commit = self.repo.find_commit(oid)
+            .context(format!("Failed to find commit: {}", commit_hash))?;
+
+        let mut opts = git2::CherrypickOptions::new();
+        self.repo.cherrypick(&commit, Some(&mut opts))
+            .context("Cherry-pick failed")?;
+
+        // Check for conflicts
+        let mut index = self.repo.index()?;
+        if index.has_conflicts() {
+            return Ok("Cherry-pick has conflicts - needs resolution".to_string());
+        }
+
+        // Create commit if no conflicts
+        let tree_id = index.write_tree()?;
+        let tree = self.repo.find_tree(tree_id)?;
+        let signature = self.repo.signature()?;
+        let head = self.repo.head()?.peel_to_commit()?;
+
+        let message = commit.message().unwrap_or("Cherry-picked commit");
+        self.repo.commit(
+            Some("HEAD"),
+            &signature,
+            &signature,
+            message,
+            &tree,
+            &[&head],
+        )?;
+
+        Ok(format!("Cherry-pick successful: {}", &commit_hash[..7]))
+    }
+
+    pub fn cherry_pick_batch(&self, commit_hashes: Vec<String>) -> Result<Vec<String>> {
+        let mut results = Vec::new();
+
+        for hash in commit_hashes {
+            match self.cherry_pick(&hash) {
+                Ok(msg) => results.push(format!("{}: {}", &hash[..7], msg)),
+                Err(e) => {
+                    results.push(format!("{}: Failed - {}", &hash[..7], e));
+                    // Stop on first error to prevent cascading failures
+                    break;
+                }
+            }
+        }
+
+        Ok(results)
+    }
+
+    // Conflict resolution operations
+    pub fn get_conflicts(&self) -> Result<Vec<ConflictInfo>> {
+        use std::fs;
+        use std::io::Read;
+
+        let index = self.repo.index()?;
+        if !index.has_conflicts() {
+            return Ok(Vec::new());
+        }
+
+        let mut conflicts = Vec::new();
+        let conflicts_iter = index.conflicts()?;
+
+        for conflict in conflicts_iter {
+            let conflict = conflict?;
+
+            let path = if let Some(ours) = &conflict.our {
+                String::from_utf8_lossy(&ours.path).to_string()
+            } else if let Some(theirs) = &conflict.their {
+                String::from_utf8_lossy(&theirs.path).to_string()
+            } else {
+                continue;
+            };
+
+            let repo_path = self.repo.path().parent().unwrap_or(self.repo.path());
+            let full_path = repo_path.join(&path);
+
+            // Read current conflicted file content
+            let mut file_content = String::new();
+            if let Ok(mut file) = fs::File::open(&full_path) {
+                let _ = file.read_to_string(&mut file_content);
+            }
+
+            // Try to get ours, theirs, and base versions
+            let ours = if let Some(our_entry) = &conflict.our {
+                let blob = self.repo.find_blob(our_entry.id)?;
+                String::from_utf8_lossy(blob.content()).to_string()
+            } else {
+                String::new()
+            };
+
+            let theirs = if let Some(their_entry) = &conflict.their {
+                let blob = self.repo.find_blob(their_entry.id)?;
+                String::from_utf8_lossy(blob.content()).to_string()
+            } else {
+                String::new()
+            };
+
+            let base = if let Some(ancestor_entry) = &conflict.ancestor {
+                let blob = self.repo.find_blob(ancestor_entry.id)?;
+                Some(String::from_utf8_lossy(blob.content()).to_string())
+            } else {
+                None
+            };
+
+            conflicts.push(ConflictInfo {
+                path,
+                ours,
+                theirs,
+                base,
+            });
+        }
+
+        Ok(conflicts)
+    }
+
+    pub fn resolve_conflict(&self, path: &str, resolution: &str) -> Result<()> {
+        use std::fs;
+        use std::io::Write;
+
+        // Write the resolution to the file
+        let repo_path = self.repo.path().parent().unwrap_or(self.repo.path());
+        let full_path = repo_path.join(path);
+
+        let mut file = fs::File::create(&full_path)
+            .context(format!("Failed to open file for writing: {}", path))?;
+        file.write_all(resolution.as_bytes())
+            .context("Failed to write resolution")?;
+
+        // Stage the resolved file
+        self.stage_file(path)?;
+
+        Ok(())
+    }
+
+    pub fn abort_merge(&self) -> Result<()> {
+        let head = self.repo.head()?.peel_to_commit()?;
+        self.repo.reset(head.as_object(), git2::ResetType::Hard, None)?;
+
+        // Clean up merge state files
+        let repo_path = self.repo.path();
+        let merge_head = repo_path.join("MERGE_HEAD");
+        let merge_msg = repo_path.join("MERGE_MSG");
+
+        if merge_head.exists() {
+            std::fs::remove_file(merge_head)?;
+        }
+        if merge_msg.exists() {
+            std::fs::remove_file(merge_msg)?;
+        }
+
+        Ok(())
     }
 }

@@ -13,6 +13,8 @@ import EnhancedDiffView from './EnhancedDiffView.vue';
   display: flex;
   flex-direction: column;
   height: 100%;
+  width: 100%;
   background-color: var(--bg-primary);
+  overflow: hidden;
 }
 </style>

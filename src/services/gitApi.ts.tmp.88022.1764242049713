@@ -171,11 +171,6 @@ export class GitApi {
         return await safeInvoke('cherry_pick_batch', { repoPath, commitHashes });
     }
 
-    // Blame operations
-    static async getFileBlame(repoPath: string, filePath: string): Promise<ApiResponse<any[]>> {
-        return await safeInvoke('get_file_blame', { repoPath, filePath });
-    }
-
     // Conflict resolution operations
     static async getConflicts(repoPath: string): Promise<ApiResponse<any[]>> {
         return await safeInvoke('get_conflicts', { repoPath });
@@ -187,10 +182,5 @@ export class GitApi {
 
     static async abortMerge(repoPath: string): Promise<ApiResponse<string>> {
         return await safeInvoke('abort_merge', { repoPath });
-    }
-
-    // Window theme operations
-    static async setWindowTheme(theme: 'light' | 'dark' | 'auto'): Promise<ApiResponse<string>> {
-        return await safeInvoke('set_window_theme', { theme });
     }
 }

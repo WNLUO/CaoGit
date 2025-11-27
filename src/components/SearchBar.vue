@@ -64,17 +64,6 @@ defineExpose({
       :autofocus="autofocus"
       @keydown="handleKeydown"
     />
-    <button
-      v-if="localValue"
-      class="clear-button"
-      @click="clear"
-      title="清除"
-    >
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <line x1="18" y1="6" x2="6" y2="18"></line>
-        <line x1="6" y1="6" x2="18" y2="18"></line>
-      </svg>
-    </button>
   </div>
 </template>
 
@@ -115,25 +104,5 @@ defineExpose({
 
 .search-input::placeholder {
   color: var(--text-secondary);
-}
-
-.clear-button {
-  position: absolute;
-  right: 8px;
-  padding: 4px;
-  border: none;
-  background: none;
-  color: var(--text-secondary);
-  cursor: pointer;
-  border-radius: 4px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: background-color 0.15s, color 0.15s;
-}
-
-.clear-button:hover {
-  background-color: var(--bg-secondary);
-  color: var(--text-primary);
 }
 </style>

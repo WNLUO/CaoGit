@@ -35,7 +35,7 @@ function getTypeLabel(type: ErrorLog['type']) {
 </script>
 
 <template>
-  <div v-if="isOpen && currentError" class="modal-overlay" @click="handleClose">
+  <div v-if="isOpen && currentError" class="modal-overlay">
     <div class="modal-content" @click.stop>
       <div class="modal-header">
         <h3>

@@ -151,7 +151,7 @@ function handleInitCancel() {
 </script>
 
 <template>
-  <div v-if="isOpen" class="modal-overlay" @click="emit('close')">
+  <div v-if="isOpen" class="modal-overlay">
     <div class="modal-content" @click.stop>
       <div class="modal-header">
         <h3>添加仓库</h3>
@@ -303,9 +303,11 @@ function handleInitCancel() {
 .modal-content {
   background-color: var(--bg-primary);
   border-radius: var(--radius-lg);
-  width: 550px;
-  max-height: 80vh;
+  width: 90vw;
+  max-width: 550px;
+  max-height: 90vh;
   overflow-y: auto;
+  margin: var(--spacing-md);
   box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
 }
 

@@ -21,20 +21,6 @@ const emit = defineEmits<{
 
 const menuRef = ref<HTMLElement | null>(null);
 
-function handleClickOutside(event: MouseEvent) {
-  if (menuRef.value && !menuRef.value.contains(event.target as Node)) {
-    emit('close');
-  }
-}
-
-onMounted(() => {
-  document.addEventListener('click', handleClickOutside);
-});
-
-onUnmounted(() => {
-  document.removeEventListener('click', handleClickOutside);
-});
-
 function handleItemClick(item: MenuItem) {
   item.action();
   emit('close');
