@@ -10,7 +10,10 @@ const isFetching = ref(false);
 const showBranchMenu = ref(false);
 
 async function handlePull() {
-  if (!repoStore.activeRepo) return;
+  if (!repoStore.activeRepo) {
+    alert('请先打开一个仓库');
+    return;
+  }
 
   isPulling.value = true;
   try {
@@ -34,7 +37,10 @@ async function handlePull() {
 }
 
 async function handlePush() {
-  if (!repoStore.activeRepo) return;
+  if (!repoStore.activeRepo) {
+    alert('请先打开一个仓库');
+    return;
+  }
 
   isPushing.value = true;
   try {
@@ -57,7 +63,10 @@ async function handlePush() {
 }
 
 async function handleFetch() {
-  if (!repoStore.activeRepo) return;
+  if (!repoStore.activeRepo) {
+    alert('请先打开一个仓库');
+    return;
+  }
 
   isFetching.value = true;
   try {
@@ -72,6 +81,28 @@ async function handleFetch() {
     alert('Fetch 失败: ' + error.message);
   } finally {
     isFetching.value = false;
+  }
+}
+
+async function addRemote() {
+  if (!repoStore.activeRepo) {
+    alert('请先打开一个仓库');
+    return;
+  }
+
+  const url = prompt('输入远程仓库 URL (例如: https://github.com/username/repo.git):');
+  if (!url) return;
+
+  try {
+    const response = await GitApi.addRemote(repoStore.activeRepo.path, 'origin', url);
+
+    if (response.success) {
+      alert('添加远程仓库成功!');
+    } else {
+      alert('添加远程仓库失败: ' + response.error);
+    }
+  } catch (error: any) {
+    alert('添加远程仓库失败: ' + error.message);
   }
 }
 
@@ -167,6 +198,16 @@ async function createNewBranch() {
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
         </span>
         <span>{{ isFetching ? '获取中...' : '获取' }}</span>
+      </button>
+      <button
+        class="action-btn"
+        title="添加远程仓库"
+        @click="addRemote"
+      >
+        <span class="icon">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="16"></line><line x1="8" y1="12" x2="16" y2="12"></line></svg>
+        </span>
+        <span>远程</span>
       </button>
     </div>
   </header>
