@@ -2,40 +2,36 @@
 
 一个功能强大的跨平台 Git 图形化客户端，基于 Tauri 2.0 + Vue 3 + TypeScript 构建。
 
-![License](https://img.shields.io/badge/license-MIT-blue.svg)
-![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-lightgrey)
-![Version](https://img.shields.io/badge/version-0.1.0-green)
-
-## ✨ 特性
+## 特性
 
 ### 核心功能
-- 📁 **多仓库管理** - 同时管理多个 Git 仓库,快速切换
-- 🌿 **完整分支管理** - 创建、切换、删除、合并分支
-- 📝 **智能提交** - 可视化 stage/unstage, 支持 AI 生成提交信息
-- 🔄 **远程同步** - Push、Pull、Fetch 操作,完整远程仓库支持
-- 📊 **提交历史** - 美观的提交历史展示,支持搜索和过滤
+- **多仓库管理** - 同时管理多个 Git 仓库,快速切换
+- **完整分支管理** - 创建、切换、删除、合并分支
+- **智能提交** - 可视化 stage/unstage, 支持 AI 生成提交信息
+- **远程同步** - Push、Pull、Fetch 操作,完整远程仓库支持
+- **提交历史** - 美观的提交历史展示,支持搜索和过滤
 
 ### 可视化
-- 🎨 **分支可视化图** - Canvas 绘制的交互式分支图
-- 🔍 **高级 Diff 查看器** - 并排/内联两种模式,语法高亮
-- 📈 **实时状态** - 工作区和暂存区实时状态展示
+- **分支可视化图** - Canvas 绘制的交互式分支图
+- **高级 Diff 查看器** - 并排/内联两种模式,语法高亮
+- **实时状态** - 工作区和暂存区实时状态展示
 
 ### 高级操作
-- 🔖 **Tag 管理** - 创建、查看、删除标签
-- 💾 **Stash 功能** - 保存和恢复工作状态
-- 🔀 **Merge** - 智能合并,自动检测冲突
-- 📦 **Clone** - 克隆远程仓库
-- 🤖 **AI 提交消息** - 基于 OpenAI API 分析代码变更自动生成提交信息
-- 🛠️ **冲突解决工具** - 三栏可视化冲突编辑器
-- 🍒 **Cherry-pick** - 精选提交功能
-- 📜 **Git Blame** - 代码行责任追踪
-- 🎨 **主题定制** - 暗黑/明亮/自动主题切换
+- **Tag 管理** - 创建、查看、删除标签
+- **Stash 功能** - 保存和恢复工作状态
+- **Merge** - 智能合并,自动检测冲突
+- **Clone** - 克隆远程仓库
+- **AI 提交消息** - 基于 OpenAI API 分析代码变更自动生成提交信息
+- **冲突解决工具** - 三栏可视化冲突编辑器
+- **Cherry-pick** - 精选提交功能
+- **Git Blame** - 代码行责任追踪
+- **主题定制** - 暗黑/明亮/自动主题切换
 
 ### 未来计划
-- ⚡ **性能优化** - 大仓库虚拟滚动优化,增量加载
-- 🔄 **Rebase** - 交互式变基
+- **性能优化** - 大仓库虚拟滚动优化,增量加载
+- **Rebase** - 交互式变基
 
-## 🚀 快速开始
+## 快速开始
 
 ### 前置要求
 
@@ -72,7 +68,7 @@ npm run tauri build
 
 构建产物位于 `src-tauri/target/release/bundle/`
 
-## 📖 使用指南
+## 使用指南
 
 ### 添加仓库
 
@@ -105,7 +101,7 @@ npm run tauri build
 2. 右侧会显示详细差异
 3. 可切换"内联"或"并排"模式
 
-## 🏗️ 技术架构
+## 技术架构
 
 ### 技术栈
 
@@ -174,20 +170,20 @@ npm run tauri build
 - 自动刷新机制
 - 错误处理
 
-## 🆚 与其他工具对比
+## 与其他工具对比
 
 | 功能 | CaoGit | GitKraken | GitHub Desktop | SourceTree |
 |------|-------------|-----------|----------------|------------|
-| 分支可视化 | ✅ | ✅ | ❌ | ✅ |
-| 并排 Diff | ✅ | ✅ | ⚠️ | ✅ |
-| 多仓库管理 | ✅ | ✅ | ❌ | ✅ |
-| 免费 | ✅ | ⚠️ 部分收费 | ✅ | ✅ |
-| 跨平台 | ✅ | ✅ | ✅ | macOS/Win |
-| AI 功能 | ✅ | ✅ | ❌ | ❌ |
-| 性能 | 🚀 轻量 | 💻 资源占用高 | ✅ | ⚠️ 慢 |
-| 本土化 | ✅ 中文 | ✅ | ✅ | ✅ |
+| 分支可视化 | 是 | 是 | 否 | 是 |
+| 并排 Diff | 是 | 是 | 部分 | 是 |
+| 多仓库管理 | 是 | 是 | 否 | 是 |
+| 免费 | 是 | 部分收费 | 是 | 是 |
+| 跨平台 | 是 | 是 | 是 | macOS/Win |
+| AI 功能 | 是 | 是 | 否 | 否 |
+| 性能 | 轻量 | 资源占用高 | 中等 | 慢 |
+| 本土化 | 中文 | 是 | 是 | 是 |
 
-## 🤝 贡献
+## 贡献
 
 欢迎贡献代码、报告 Bug 或提出新功能建议!
 
@@ -205,22 +201,22 @@ npm run tauri build
 - TypeScript/Vue: ESLint + Prettier
 - 提交信息遵循 [Conventional Commits](https://www.conventionalcommits.org/)
 
-## 📄 许可证
+## 许可证
 
 本项目采用 MIT 许可证 - 详见 [LICENSE](LICENSE) 文件
 
-## 🙏 致谢
+## 致谢
 
 - [Tauri](https://tauri.app/) - 跨平台桌面框架
 - [git2-rs](https://github.com/rust-lang/git2-rs) - Rust Git 绑定
 - [Vue.js](https://vuejs.org/) - 渐进式框架
 - 所有开源贡献者
 
-## 📞 联系方式
+## 联系方式
 
 - Issue Tracker: [GitHub Issues](https://github.com/WNLUO/CaoGit/issues)
 - 讨论区: [GitHub Discussions](https://github.com/WNLUO/CaoGit/discussions)
 
 ---
 
-⭐ 如果这个项目对你有帮助,请给个 Star!
+如果这个项目对你有帮助,请给个 Star!
