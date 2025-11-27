@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
 import { repoStore } from '../stores/repoStore';
+import { toastStore } from '../stores/toastStore';
 import { GitApi } from '../services/gitApi';
 import VirtualScroller from './VirtualScroller.vue';
 import ContextMenu from './ContextMenu.vue';
@@ -168,31 +169,31 @@ async function cherryPickCommits() {
     if (commits.length === 1) {
       const result = await GitApi.cherryPick(repoStore.activeRepo.path, commits[0]);
       if (result.success && result.data) {
-        alert(result.data);
+        toastStore.success(result.data);
         await Promise.all([
           repoStore.refreshStatus(),
           repoStore.refreshCommits(),
           repoStore.refreshBranches()
         ]);
       } else {
-        alert(`Cherry-pick 失败: ${result.error}`);
+        toastStore.error(`Cherry-pick 失败: ${result.error}`);
       }
     } else {
       const result = await GitApi.cherryPickBatch(repoStore.activeRepo.path, commits);
       if (result.success && result.data) {
-        alert(`批量 Cherry-pick 结果:\n${result.data.join('\n')}`);
+        toastStore.success(`批量 Cherry-pick 结果:\n${result.data.join('\n')}`);
         await Promise.all([
           repoStore.refreshStatus(),
           repoStore.refreshCommits(),
           repoStore.refreshBranches()
         ]);
       } else {
-        alert(`批量 Cherry-pick 失败: ${result.error}`);
+        toastStore.error(`批量 Cherry-pick 失败: ${result.error}`);
       }
     }
   } catch (error) {
     console.error('Cherry-pick failed:', error);
-    alert(`Cherry-pick 错误: ${error}`);
+    toastStore.error(`Cherry-pick 错误: ${error}`);
   } finally {
     selectedCommits.value.clear();
   }
@@ -200,12 +201,12 @@ async function cherryPickCommits() {
 
 function copyCommitHash(hash: string) {
   navigator.clipboard.writeText(hash);
-  alert(`已复制提交哈希: ${hash.substring(0, 7)}`);
+  toastStore.success(`已复制提交哈希: ${hash.substring(0, 7)}`);
 }
 
 function copyCommitMessage(message: string) {
   navigator.clipboard.writeText(message);
-  alert('已复制提交信息');
+  toastStore.success('已复制提交信息');
 }
 
 function isCommitSelected(hash: string) {

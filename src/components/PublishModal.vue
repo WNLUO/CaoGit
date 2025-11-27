@@ -3,6 +3,7 @@ import { ref, watch, computed } from 'vue';
 import { GitApi } from '../services/gitApi';
 import { PlatformApi, type CreateRepoOptions } from '../services/platformApi';
 import { settingsStore } from '../stores/settingsStore';
+import { toastStore } from '../stores/toastStore';
 
 interface Props {
   isOpen: boolean;
@@ -205,7 +206,7 @@ function goBack() {
 
 async function handleAddRemote() {
   if (!remoteUrl.value.trim() || !props.repoPath) {
-    alert('请输入远程仓库 URL');
+    toastStore.warning('请输入远程仓库 URL');
     return;
   }
 
@@ -214,14 +215,14 @@ async function handleAddRemote() {
     const response = await GitApi.addRemote(props.repoPath, remoteName.value, remoteUrl.value.trim());
 
     if (response.success) {
-      alert('添加远程仓库成功！');
+      toastStore.success('添加远程仓库成功！');
       emit('remote-added');
       emit('close');
     } else {
-      alert('添加远程仓库失败: ' + response.error);
+      toastStore.error('添加远程仓库失败: ' + response.error);
     }
   } catch (error: any) {
-    alert('添加远程仓库失败: ' + error.message);
+    toastStore.error('添加远程仓库失败: ' + error.message);
   } finally {
     isLoading.value = false;
   }
@@ -243,19 +244,19 @@ function selectPlatformTemplate(platformId: string) {
 
 async function handleCreateAndPublish() {
   if (!repoName.value.trim()) {
-    alert('请输入仓库名称');
+    toastStore.warning('请输入仓库名称');
     return;
   }
 
   // 验证仓库名称
   const validation = validateRepoName(repoName.value.trim());
   if (!validation.valid) {
-    alert(validation.error);
+    toastStore.error(validation.error || '仓库名称验证失败');
     return;
   }
 
   if (!selectedPlatform.value) {
-    alert('请选择平台');
+    toastStore.warning('请选择平台');
     return;
   }
 
@@ -287,12 +288,12 @@ async function handleCreateAndPublish() {
         result = await PlatformApi.createGiteeRepo(token, options);
         break;
       default:
-        alert('不支持的平台');
+        toastStore.error('不支持的平台');
         return;
     }
 
     if (!result.success) {
-      alert('创建仓库失败: ' + (result.error || '未知错误'));
+      toastStore.error('创建仓库失败: ' + (result.error || '未知错误'));
       isLoading.value = false;
       return;
     }
@@ -348,7 +349,7 @@ async function handleCreateAndPublish() {
     }
 
     if (!repoUrl) {
-      alert('仓库创建成功，但未获取到 URL');
+      toastStore.warning('仓库创建成功，但未获取到 URL');
       isLoading.value = false;
       return;
     }
@@ -378,7 +379,7 @@ async function handleCreateAndPublish() {
     }
 
     if (!addRemoteResponse.success) {
-      alert(`仓库创建成功，但添加远程失败: ${addRemoteResponse.error}\n\n仓库 URL: ${repoUrl}`);
+      toastStore.error(`仓库创建成功，但添加远程失败: ${addRemoteResponse.error}\n\n仓库 URL: ${repoUrl}`);
       isLoading.value = false;
       return;
     }
@@ -397,7 +398,7 @@ async function handleCreateAndPublish() {
       // 检查是否有提交记录
       const commitsResponse = await GitApi.getCommits(props.repoPath, 1);
       if (!commitsResponse.success || !commitsResponse.data || commitsResponse.data.length === 0) {
-        alert(`仓库创建成功！\n\n但本地仓库还没有任何提交记录，无法推送。\n\n请先进行提交：\n1. 在"变更"标签页中暂存文件\n2. 输入提交信息并提交\n3. 然后使用顶部的"推送"按钮推送到远程`);
+        toastStore.info(`仓库创建成功！\n\n但本地仓库还没有任何提交记录，无法推送。\n\n请先进行提交：\n1. 在"变更"标签页中暂存文件\n2. 输入提交信息并提交\n3. 然后使用顶部的"推送"按钮推送到远程`);
         emit('remote-added');
         emit('close');
         return;
@@ -406,7 +407,7 @@ async function handleCreateAndPublish() {
       const pushResponse = await GitApi.push(props.repoPath, 'origin', branchToPush);
 
       if (pushResponse.success) {
-        alert('仓库创建成功并已推送！');
+        toastStore.success('仓库创建成功并已推送！');
       } else {
         // 检查具体错误类型
         const isAuthError = pushResponse.error?.includes('authentication') ||
@@ -436,17 +437,17 @@ async function handleCreateAndPublish() {
           errorMsg += `git push -u origin ${branchToPush}`;
         }
 
-        alert(errorMsg);
+        toastStore.warning(errorMsg);
       }
     } else {
-      alert('仓库创建成功！远程已添加。');
+      toastStore.success('仓库创建成功！远程已添加。');
     }
 
     emit('remote-added');
     emit('close');
 
   } catch (error: any) {
-    alert('操作失败: ' + error.message);
+    toastStore.error('操作失败: ' + error.message);
   } finally {
     isLoading.value = false;
   }

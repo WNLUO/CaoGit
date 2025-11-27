@@ -3,6 +3,7 @@ import { ref, watch } from 'vue';
 import type { Repository } from '../types';
 import { settingsStore } from '../stores/settingsStore';
 import { debugStore } from '../stores/debugStore';
+import { toastStore } from '../stores/toastStore';
 import { PlatformApi } from '../services/platformApi';
 import { GitApi } from '../services/gitApi';
 import { repoStore } from '../stores/repoStore';
@@ -187,9 +188,9 @@ async function verifyToken(platform: 'github' | 'gitlab' | 'gitee') {
         result = await PlatformApi.verifyGitHubToken(token);
         if (result.valid && result.username) {
           githubUsername.value = result.username;
-          alert(`验证成功！用户名: ${result.username}`);
+          toastStore.success(`验证成功！用户名: ${result.username}`);
         } else {
-          alert('Token 验证失败: ' + (result.error || '未知错误'));
+          toastStore.error('Token 验证失败: ' + (result.error || '未知错误'));
         }
         break;
       case 'gitlab':
@@ -197,9 +198,9 @@ async function verifyToken(platform: 'github' | 'gitlab' | 'gitee') {
         result = await PlatformApi.verifyGitLabToken(token);
         if (result.valid && result.username) {
           gitlabUsername.value = result.username;
-          alert(`验证成功！用户名: ${result.username}`);
+          toastStore.success(`验证成功！用户名: ${result.username}`);
         } else {
-          alert('Token 验证失败: ' + (result.error || '未知错误'));
+          toastStore.error('Token 验证失败: ' + (result.error || '未知错误'));
         }
         break;
       case 'gitee':
@@ -207,14 +208,14 @@ async function verifyToken(platform: 'github' | 'gitlab' | 'gitee') {
         result = await PlatformApi.verifyGiteeToken(token);
         if (result.valid && result.username) {
           giteeUsername.value = result.username;
-          alert(`验证成功！用户名: ${result.username}`);
+          toastStore.success(`验证成功！用户名: ${result.username}`);
         } else {
-          alert('Token 验证失败: ' + (result.error || '未知错误'));
+          toastStore.error('Token 验证失败: ' + (result.error || '未知错误'));
         }
         break;
     }
   } catch (error: any) {
-    alert('验证失败: ' + error.message);
+    toastStore.error('验证失败: ' + error.message);
   } finally {
     verifyingToken.value = null;
   }
@@ -283,23 +284,23 @@ function toggleAddRemoteForm() {
 
 async function addRemote() {
   if (!props.repo || !newRemoteName.value || !newRemoteUrl.value) {
-    alert('请填写远程仓库名称和URL');
+    toastStore.warning('请填写远程仓库名称和URL');
     return;
   }
 
   try {
     const response = await GitApi.addRemote(props.repo.path, newRemoteName.value, newRemoteUrl.value);
     if (response.success) {
-      alert('添加远程仓库成功!');
+      toastStore.success('添加远程仓库成功!');
       newRemoteName.value = '';
       newRemoteUrl.value = '';
       showAddRemoteForm.value = false;
       await loadRemoteConfig();
     } else {
-      alert('添加失败: ' + response.error);
+      toastStore.error('添加失败: ' + response.error);
     }
   } catch (error: any) {
-    alert('添加失败: ' + error.message);
+    toastStore.error('添加失败: ' + error.message);
   }
 }
 
@@ -313,13 +314,13 @@ async function removeRemote(remoteName: string) {
   try {
     const response = await GitApi.removeRemote(props.repo.path, remoteName);
     if (response.success) {
-      alert('删除成功!');
+      toastStore.success('删除成功!');
       await loadRemoteConfig();
     } else {
-      alert('删除失败: ' + response.error);
+      toastStore.error('删除失败: ' + response.error);
     }
   } catch (error: any) {
-    alert('删除失败: ' + error.message);
+    toastStore.error('删除失败: ' + error.message);
   }
 }
 
@@ -343,11 +344,11 @@ async function saveEditRemote() {
     // 再添加新的
     await GitApi.addRemote(props.repo.path, oldName, newUrl);
 
-    alert('修改成功!');
+    toastStore.success('修改成功!');
     editingRemote.value = null;
     await loadRemoteConfig();
   } catch (error: any) {
-    alert('修改失败: ' + error.message);
+    toastStore.error('修改失败: ' + error.message);
   }
 }
 
@@ -390,7 +391,7 @@ function save() {
     // Save debug mode
     debugStore.setDebugMode(debugModeEnabled.value);
 
-    alert('全局设置已保存');
+    toastStore.success('全局设置已保存');
   } else if (props.repo) {
     // Save repo settings
     const updates: Partial<Repository> = {
@@ -416,7 +417,7 @@ function save() {
     }
 
     repoStore.updateRepository(props.repo.id, updates);
-    alert('仓库设置已保存');
+    toastStore.success('仓库设置已保存');
   }
 
   emit('close');

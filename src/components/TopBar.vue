@@ -50,7 +50,7 @@ onMounted(() => {
 
 async function handlePull() {
   if (!repoStore.activeRepo) {
-    alert('请先打开一个仓库');
+    toastStore.warning('请先打开一个仓库');
     return;
   }
 
@@ -85,7 +85,7 @@ async function handlePull() {
 
 async function handlePush() {
   if (!repoStore.activeRepo) {
-    alert('请先打开一个仓库');
+    toastStore.warning('请先打开一个仓库');
     return;
   }
 
@@ -106,11 +106,11 @@ async function handlePush() {
       // 延迟一下让用户看到成功消息
       await new Promise(resolve => setTimeout(resolve, 800));
     } else {
-      // 只在失败时显示 alert
-      alert('Push 失败: ' + response.error);
+      // 只在失败时显示 toast
+      toastStore.error('Push 失败: ' + response.error);
     }
   } catch (error: any) {
-    alert('Push 失败: ' + error.message);
+    toastStore.error('Push 失败: ' + error.message);
   } finally {
     isPushing.value = false;
     showProgress.value = false;
@@ -119,7 +119,7 @@ async function handlePush() {
 
 async function handleFetch() {
   if (!repoStore.activeRepo) {
-    alert('请先打开一个仓库');
+    toastStore.warning('请先打开一个仓库');
     return;
   }
 
@@ -136,11 +136,11 @@ async function handleFetch() {
       // 延迟一下让用户看到成功消息
       await new Promise(resolve => setTimeout(resolve, 800));
     } else {
-      // 只在失败时显示 alert
-      alert('Fetch 失败: ' + response.error);
+      // 只在失败时显示 toast
+      toastStore.error('Fetch 失败: ' + response.error);
     }
   } catch (error: any) {
-    alert('Fetch 失败: ' + error.message);
+    toastStore.error('Fetch 失败: ' + error.message);
   } finally {
     isFetching.value = false;
     showProgress.value = false;
@@ -149,7 +149,7 @@ async function handleFetch() {
 
 function openPublishModal() {
   if (!repoStore.activeRepo) {
-    alert('请先打开一个仓库');
+    toastStore.warning('请先打开一个仓库');
     return;
   }
 
@@ -175,9 +175,9 @@ async function switchToBranch(branchName: string) {
   try {
     await repoStore.checkoutBranch(branchName);
     showBranchMenu.value = false;
-    alert('切换分支成功!');
+    toastStore.success('切换分支成功!');
   } catch (error: any) {
-    alert('切换分支失败: ' + error.message);
+    toastStore.error('切换分支失败: ' + error.message);
   }
 }
 
@@ -187,9 +187,9 @@ async function createNewBranch() {
 
   try {
     await repoStore.createBranch(branchName);
-    alert('创建分支成功!');
+    toastStore.success('创建分支成功!');
   } catch (error: any) {
-    alert('创建分支失败: ' + error.message);
+    toastStore.error('创建分支失败: ' + error.message);
   }
 }
 </script>

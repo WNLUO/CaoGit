@@ -3,6 +3,7 @@ import { ref } from 'vue';
 import { GitApi } from '../services/gitApi';
 import { open } from '@tauri-apps/plugin-dialog';
 import { debugStore } from '../stores/debugStore';
+import { toastStore } from '../stores/toastStore';
 import InitRepoModal from './InitRepoModal.vue';
 
 defineProps<{
@@ -80,7 +81,7 @@ async function handleAddRepo() {
       await cloneRemoteRepo();
     }
   } catch (error: any) {
-    alert('操作失败: ' + error.message);
+    toastStore.error('操作失败: ' + error.message);
   } finally {
     isProcessing.value = false;
   }
@@ -118,7 +119,7 @@ async function addLocalRepo() {
 
 async function cloneRemoteRepo() {
   if (!cloneUrl.value || !cloneTargetPath.value) {
-    alert('请填写克隆URL和目标路径');
+    toastStore.warning('请填写克隆URL和目标路径');
     return;
   }
 
