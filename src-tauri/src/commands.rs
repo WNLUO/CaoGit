@@ -158,9 +158,9 @@ pub fn get_current_branch(repo_path: String) -> ApiResponse<String> {
 
 // Remote operations
 #[tauri::command]
-pub fn fetch_remote(repo_path: String, remote_name: String) -> ApiResponse<String> {
+pub fn fetch_remote(window: Window, repo_path: String, remote_name: String) -> ApiResponse<String> {
     match GitRepository::open(&repo_path) {
-        Ok(repo) => match repo.fetch(&remote_name) {
+        Ok(repo) => match repo.fetch_with_progress(&remote_name, window) {
             Ok(_) => ApiResponse::success("Fetch completed".to_string()),
             Err(e) => ApiResponse::error(e.to_string()),
         },
@@ -169,9 +169,9 @@ pub fn fetch_remote(repo_path: String, remote_name: String) -> ApiResponse<Strin
 }
 
 #[tauri::command]
-pub fn pull_remote(repo_path: String, remote_name: String, branch_name: String) -> ApiResponse<String> {
+pub fn pull_remote(window: Window, repo_path: String, remote_name: String, branch_name: String) -> ApiResponse<String> {
     match GitRepository::open(&repo_path) {
-        Ok(repo) => match repo.pull(&remote_name, &branch_name) {
+        Ok(repo) => match repo.pull_with_progress(&remote_name, &branch_name, window) {
             Ok(_) => ApiResponse::success("Pull completed".to_string()),
             Err(e) => ApiResponse::error(e.to_string()),
         },
@@ -180,9 +180,9 @@ pub fn pull_remote(repo_path: String, remote_name: String, branch_name: String) 
 }
 
 #[tauri::command]
-pub fn push_remote(repo_path: String, remote_name: String, branch_name: String) -> ApiResponse<String> {
+pub fn push_remote(window: Window, repo_path: String, remote_name: String, branch_name: String) -> ApiResponse<String> {
     match GitRepository::open(&repo_path) {
-        Ok(repo) => match repo.push(&remote_name, &branch_name) {
+        Ok(repo) => match repo.push_with_progress(&remote_name, &branch_name, window) {
             Ok(_) => ApiResponse::success("Push completed".to_string()),
             Err(e) => ApiResponse::error(e.to_string()),
         },

@@ -4,6 +4,7 @@ import { repoStore } from '../stores/repoStore';
 import { GitApi } from '../services/gitApi';
 import PublishModal from './PublishModal.vue';
 import ThemeToggle from './ThemeToggle.vue';
+import ProgressBar from './ProgressBar.vue';
 
 const emit = defineEmits<{
   (e: 'open-global-settings'): void;
@@ -16,6 +17,11 @@ const isFetching = ref(false);
 const showBranchMenu = ref(false);
 const showPublishModal = ref(false);
 const hasRemote = ref(false);
+
+// 进度条状态
+const showProgress = ref(false);
+const progressOperation = ref<'push' | 'pull' | 'fetch' | ''>('');
+const progressMessage = ref('');
 
 // 检查是否有远程仓库
 async function checkRemote() {
@@ -48,6 +54,10 @@ async function handlePull() {
   }
 
   isPulling.value = true;
+  showProgress.value = true;
+  progressOperation.value = 'pull';
+  progressMessage.value = `正在从 origin/${currentBranch.value} 拉取代码...`;
+
   try {
     const response = await GitApi.pull(
       repoStore.activeRepo.path,
@@ -56,8 +66,11 @@ async function handlePull() {
     );
 
     if (response.success) {
-      alert('Pull 成功!');
+      progressMessage.value = 'Pull 成功!';
+      // 延迟一下让用户看到成功消息
+      await new Promise(resolve => setTimeout(resolve, 500));
       await repoStore.loadRepoData(repoStore.activeRepo);
+      alert('Pull 成功!');
     } else {
       alert('Pull 失败: ' + response.error);
     }
@@ -65,6 +78,7 @@ async function handlePull() {
     alert('Pull 失败: ' + error.message);
   } finally {
     isPulling.value = false;
+    showProgress.value = false;
   }
 }
 
@@ -75,6 +89,10 @@ async function handlePush() {
   }
 
   isPushing.value = true;
+  showProgress.value = true;
+  progressOperation.value = 'push';
+  progressMessage.value = `正在推送到 origin/${currentBranch.value}...`;
+
   try {
     const response = await GitApi.push(
       repoStore.activeRepo.path,
@@ -83,6 +101,9 @@ async function handlePush() {
     );
 
     if (response.success) {
+      progressMessage.value = 'Push 成功!';
+      // 延迟一下让用户看到成功消息
+      await new Promise(resolve => setTimeout(resolve, 500));
       alert('Push 成功!');
     } else {
       alert('Push 失败: ' + response.error);
@@ -91,6 +112,7 @@ async function handlePush() {
     alert('Push 失败: ' + error.message);
   } finally {
     isPushing.value = false;
+    showProgress.value = false;
   }
 }
 
@@ -101,10 +123,17 @@ async function handleFetch() {
   }
 
   isFetching.value = true;
+  showProgress.value = true;
+  progressOperation.value = 'fetch';
+  progressMessage.value = '正在从 origin 获取更新...';
+
   try {
     const response = await GitApi.fetch(repoStore.activeRepo.path, 'origin');
 
     if (response.success) {
+      progressMessage.value = 'Fetch 成功!';
+      // 延迟一下让用户看到成功消息
+      await new Promise(resolve => setTimeout(resolve, 500));
       alert('Fetch 成功!');
     } else {
       alert('Fetch 失败: ' + response.error);
@@ -113,6 +142,7 @@ async function handleFetch() {
     alert('Fetch 失败: ' + error.message);
   } finally {
     isFetching.value = false;
+    showProgress.value = false;
   }
 }
 
@@ -257,6 +287,13 @@ async function createNewBranch() {
       @remote-added="handleRemoteAdded"
       @open-settings="emit('open-global-settings')"
     />
+
+    <!-- Progress Bar -->
+    <ProgressBar
+      :show="showProgress"
+      :operation="progressOperation"
+      :message="progressMessage"
+    />
   </header>
 </template>
 
@@ -348,7 +385,7 @@ async function createNewBranch() {
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-lg);
   min-width: 250px;
-  z-index: 1000;
+  z-index: 10000;
 }
 
 .menu-header {

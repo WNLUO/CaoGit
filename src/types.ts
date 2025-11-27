@@ -9,6 +9,7 @@ export interface Repository {
     username?: string;
     password?: string;
     proxy?: ProxySettings; // Per-repo proxy settings
+    remoteUrl?: string; // Remote repository URL
 }
 
 export interface ProxySettings {

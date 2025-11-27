@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { repoStore } from '../stores/repoStore';
 import { settingsStore } from '../stores/settingsStore';
+import { GitApi } from '../services/gitApi';
 import type { Repository } from '../types';
 import AddRepoModal from './AddRepoModal.vue';
 import NetworkStatus from './NetworkStatus.vue';
@@ -24,6 +25,24 @@ const emit = defineEmits<{
   (e: 'select-repo', repo: Repository): void;
 }>();
 
+// 在组件挂载时，为所有没有 remoteUrl 的仓库加载远程 URL
+onMounted(async () => {
+  for (const repo of repoStore.repositories) {
+    if (!repo.remoteUrl) {
+      try {
+        const response = await GitApi.getRemotes(repo.path);
+        if (response.success && response.data && response.data.length > 0) {
+          const origin = response.data.find(r => r.name === 'origin');
+          const remoteUrl = origin ? origin.url : response.data[0].url;
+          repoStore.updateRepository(repo.id, { remoteUrl });
+        }
+      } catch (error) {
+        console.log(`No remote found for repository: ${repo.name}`);
+      }
+    }
+  }
+});
+
 async function selectRepo(repo: Repository) {
   activeRepoId.value = repo.id;
   emit('select-repo', repo);
@@ -34,7 +53,7 @@ function addRepo() {
   showAddRepoModal.value = true;
 }
 
-function handleRepoAdded(path: string) {
+async function handleRepoAdded(path: string) {
   // Extract repository name from path
   const repoName = path.split('/').filter(Boolean).pop() || 'Unknown';
 
@@ -43,6 +62,18 @@ function handleRepoAdded(path: string) {
     ? Math.max(...repoStore.repositories.map(r => r.id)) + 1
     : 1;
 
+  // Try to get remote URL
+  let remoteUrl = '';
+  try {
+    const response = await GitApi.getRemotes(path);
+    if (response.success && response.data && response.data.length > 0) {
+      const origin = response.data.find(r => r.name === 'origin');
+      remoteUrl = origin ? origin.url : response.data[0].url;
+    }
+  } catch (error) {
+    console.log('No remote found for this repository');
+  }
+
   // Create new repository object
   const newRepo: Repository = {
     id: newId,
@@ -50,7 +81,8 @@ function handleRepoAdded(path: string) {
     path: path,
     status: 'online',
     protocol: 'https',
-    authType: 'none'
+    authType: 'none',
+    remoteUrl: remoteUrl || undefined
   };
 
   // Add to store
@@ -70,6 +102,34 @@ function getStatusColor(status: Repository['status']) {
     case 'syncing': return '#3b82f6'; // blue
     case 'error': return '#ef4444'; // red
     default: return '#9ca3af';
+  }
+}
+
+function formatRemoteUrl(url?: string): string {
+  if (!url) return '无远程仓库';
+
+  // Extract hostname and path from URL
+  try {
+    // Handle SSH format: git@github.com:user/repo.git
+    if (url.startsWith('git@')) {
+      const match = url.match(/git@([^:]+):(.+)/);
+      if (match) {
+        const host = match[1];
+        const path = match[2].replace('.git', '');
+        return `${host}/${path}`;
+      }
+    }
+
+    // Handle HTTP/HTTPS format
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      const urlObj = new URL(url);
+      const path = urlObj.pathname.replace('.git', '').replace(/^\//, '');
+      return `${urlObj.hostname}/${path}`;
+    }
+
+    return url;
+  } catch (error) {
+    return url;
   }
 }
 
@@ -129,7 +189,7 @@ const contextMenuItems = computed(() => [
         >
           <div class="repo-info">
             <span class="repo-name">{{ repo.name }}</span>
-            <span class="repo-path">{{ repo.path.split('/').pop() }}</span>
+            <span class="repo-remote">{{ formatRemoteUrl(repo.remoteUrl) }}</span>
           </div>
           
           <div class="repo-actions">
@@ -265,7 +325,7 @@ li.active .repo-name {
   font-weight: var(--font-weight-semibold);
 }
 
-li.active .repo-path {
+li.active .repo-remote {
   color: var(--text-secondary);
 }
 
@@ -288,13 +348,14 @@ li.active .repo-path {
   transition: color var(--transition-fast);
 }
 
-.repo-path {
+.repo-remote {
   display: block;
   font-size: var(--font-size-xs);
   color: var(--text-tertiary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  font-family: monospace;
 }
 
 .repo-actions {

@@ -1,41 +1,100 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, computed, watch } from 'vue';
-import { settingsStore } from '../stores/settingsStore';
+import { ref, onMounted, onUnmounted, computed } from 'vue';
+import { listen } from '@tauri-apps/api/event';
 
 const props = defineProps<{
   proxyEnabled: boolean;
   testUrl?: string;
 }>();
 
-const downloadSpeed = ref(0); // KB/s
-const uploadSpeed = ref(0); // KB/s
+// 显示模式：speed（速率）或 traffic（流量）
+type DisplayMode = 'speed' | 'traffic';
+const displayMode = ref<DisplayMode>('speed');
+
+// 实时速率数据
+const uploadSpeed = ref(0); // bytes/s
+const downloadSpeed = ref(0); // bytes/s
+
+// 累计流量数据
+const totalUpload = ref(0); // bytes
+const totalDownload = ref(0); // bytes
+
+// 延迟数据
 const latency = ref(0); // ms
 const isTesting = ref(false);
 
-let testInterval: number | null = null;
-
-const formattedDownload = computed(() => {
-  if (downloadSpeed.value < 1024) {
-    return `${downloadSpeed.value.toFixed(1)} KB/s`;
+// 从 localStorage 加载历史流量数据
+function loadTrafficData() {
+  try {
+    const saved = localStorage.getItem('git-traffic-stats');
+    if (saved) {
+      const data = JSON.parse(saved);
+      totalUpload.value = data.totalUpload || 0;
+      totalDownload.value = data.totalDownload || 0;
+    }
+  } catch (error) {
+    console.error('Failed to load traffic data:', error);
   }
-  return `${(downloadSpeed.value / 1024).toFixed(2)} MB/s`;
+}
+
+// 保存流量数据到 localStorage
+function saveTrafficData() {
+  try {
+    const data = {
+      totalUpload: totalUpload.value,
+      totalDownload: totalDownload.value,
+      lastUpdated: new Date().toISOString()
+    };
+    localStorage.setItem('git-traffic-stats', JSON.stringify(data));
+  } catch (error) {
+    console.error('Failed to save traffic data:', error);
+  }
+}
+
+// 格式化速率 (bytes/s -> MB/s or KB/s)
+function formatSpeed(bytesPerSec: number): string {
+  if (bytesPerSec === 0) return '0 B/s';
+  if (bytesPerSec < 1024) return `${bytesPerSec.toFixed(0)} B/s`;
+  if (bytesPerSec < 1024 * 1024) return `${(bytesPerSec / 1024).toFixed(1)} KB/s`;
+  return `${(bytesPerSec / (1024 * 1024)).toFixed(2)} MB/s`;
+}
+
+// 格式化流量 (bytes -> GB or MB or KB)
+function formatBytes(bytes: number): string {
+  if (bytes === 0) return '0 B';
+  if (bytes < 1024) return `${bytes.toFixed(0)} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+}
+
+const formattedUploadSpeed = computed(() => formatSpeed(uploadSpeed.value));
+const formattedDownloadSpeed = computed(() => formatSpeed(downloadSpeed.value));
+const formattedTotalUpload = computed(() => formatBytes(totalUpload.value));
+const formattedTotalDownload = computed(() => formatBytes(totalDownload.value));
+const formattedLatency = computed(() => {
+  if (latency.value === 0) return '--';
+  return `${latency.value}ms`;
 });
 
-const formattedUpload = computed(() => {
-  if (uploadSpeed.value < 1024) {
-    return `${uploadSpeed.value.toFixed(1)} KB/s`;
-  }
-  return `${(uploadSpeed.value / 1024).toFixed(2)} MB/s`;
-});
+// 点击处理：切换显示模式 + 触发网络测试
+async function handleClick() {
+  // 切换显示模式
+  displayMode.value = displayMode.value === 'speed' ? 'traffic' : 'speed';
 
-async function testNetworkSpeed() {
-  if (isTesting.value || !props.proxyEnabled) return;
+  // 触发延迟测试
+  await testNetworkLatency();
+}
+
+// 网络延迟测试
+async function testNetworkLatency() {
+  if (isTesting.value) return;
 
   isTesting.value = true;
-  const testUrl = props.testUrl || settingsStore.settings.networkTest.testUrl;
+  const testUrl = props.testUrl || 'https://www.github.com';
 
   try {
-    // Test latency with multiple requests for accuracy
+    // 测试3次取平均值
     const latencyTests = [];
     for (let i = 0; i < 3; i++) {
       const startTime = performance.now();
@@ -43,141 +102,134 @@ async function testNetworkSpeed() {
         await fetch(testUrl, {
           method: 'HEAD',
           cache: 'no-cache',
-          mode: 'no-cors' // Allow cross-origin requests
+          mode: 'no-cors'
         });
         const endTime = performance.now();
         latencyTests.push(endTime - startTime);
       } catch (e) {
-        // Ignore individual failures
+        // 忽略单次失败
       }
     }
 
     if (latencyTests.length > 0) {
-      // Calculate average latency
       latency.value = Math.round(latencyTests.reduce((a, b) => a + b, 0) / latencyTests.length);
     } else {
-      latency.value = -1;
+      latency.value = 0;
     }
-
-    // Test download speed with a small file
-    try {
-      const downloadStart = performance.now();
-      const response = await fetch(testUrl, {
-        cache: 'no-cache',
-        mode: 'no-cors'
-      });
-
-      if (response.ok || response.type === 'opaque') {
-        const downloadEnd = performance.now();
-        const duration = (downloadEnd - downloadStart) / 1000; // seconds
-
-        // Estimate download speed (rough estimate based on typical response size)
-        // For a more accurate test, you'd need to download a known-size file
-        const estimatedSize = 50; // KB (rough estimate)
-        downloadSpeed.value = Math.round(estimatedSize / duration);
-      }
-    } catch (e) {
-      downloadSpeed.value = 0;
-    }
-
-    // Upload speed is harder to test without a dedicated endpoint
-    // Set to 0 or a fraction of download speed as estimate
-    uploadSpeed.value = Math.round(downloadSpeed.value * 0.6);
-
   } catch (error) {
     console.error('Network test failed:', error);
-    latency.value = -1;
-    downloadSpeed.value = 0;
-    uploadSpeed.value = 0;
+    latency.value = 0;
   } finally {
     isTesting.value = false;
   }
 }
 
-function startAutoTest(intervalSeconds: number = 60) {
-  if (testInterval) {
-    clearInterval(testInterval);
-  }
+// 监听 Git 进度事件
+let unlistenProgress: (() => void) | null = null;
 
-  testNetworkSpeed();
-  testInterval = window.setInterval(() => {
-    testNetworkSpeed();
-  }, intervalSeconds * 1000);
-}
+onMounted(async () => {
+  // 加载历史流量数据
+  loadTrafficData();
 
-function stopAutoTest() {
-  if (testInterval) {
-    clearInterval(testInterval);
-    testInterval = null;
-  }
-}
+  // 监听 Tauri 的 git-progress 事件
+  try {
+    unlistenProgress = await listen<{
+      operation_type: string;
+      total_objects: number;
+      received_objects: number;
+      total_bytes: number;
+      received_bytes: number;
+      speed_bytes_per_sec: number;
+    }>('git-progress', (event) => {
+      const progress = event.payload;
 
-function handleClick() {
-  if (props.proxyEnabled && !isTesting.value) {
-    testNetworkSpeed();
-  }
-}
-
-// Watch for proxy enabled changes and test interval changes
-watch(() => props.proxyEnabled, (newVal) => {
-  if (newVal) {
-    const interval = settingsStore.settings.networkTest.testInterval;
-    startAutoTest(interval);
-  } else {
-    stopAutoTest();
-  }
-});
-
-watch(() => settingsStore.settings.networkTest.testInterval, (newInterval) => {
-  if (props.proxyEnabled) {
-    startAutoTest(newInterval);
-  }
-});
-
-onMounted(() => {
-  if (props.proxyEnabled) {
-    const interval = settingsStore.settings.networkTest.testInterval;
-    startAutoTest(interval);
+      if (progress.operation_type === 'upload') {
+        uploadSpeed.value = progress.speed_bytes_per_sec;
+        const bytesIncrement = progress.received_bytes;
+        if (bytesIncrement > 0) {
+          totalUpload.value += bytesIncrement;
+          saveTrafficData();
+        }
+      } else if (progress.operation_type === 'download') {
+        downloadSpeed.value = progress.speed_bytes_per_sec;
+        const bytesIncrement = progress.received_bytes;
+        if (bytesIncrement > 0) {
+          totalDownload.value += bytesIncrement;
+          saveTrafficData();
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Failed to listen to git-progress event:', error);
   }
 });
 
 onUnmounted(() => {
-  stopAutoTest();
-});
+  if (unlistenProgress) {
+    unlistenProgress();
+  }
 
-defineExpose({
-  startAutoTest,
-  stopAutoTest,
-  testNetworkSpeed
+  // 保存最终的流量数据
+  saveTrafficData();
 });
 </script>
 
 <template>
   <div
     class="network-status"
-    :class="{ disabled: !proxyEnabled, clickable: proxyEnabled }"
+    :class="{ clickable: true, [displayMode]: true, testing: isTesting }"
     @click="handleClick"
-    :title="proxyEnabled ? '点击刷新测速' : ''"
+    :title="`点击切换显示模式和测速 (当前: ${displayMode === 'speed' ? '速率' : '流量'})`"
   >
-    <div v-if="!proxyEnabled" class="status-text">
-      未启用代理
-    </div>
-    <div v-else class="stats">
-      <div class="stat-item">
-        <div class="stat-label">下载</div>
-        <div class="stat-value">{{ formattedDownload }}</div>
-      </div>
-      <div class="divider"></div>
-      <div class="stat-item">
-        <div class="stat-label">上传</div>
-        <div class="stat-value">{{ formattedUpload }}</div>
-      </div>
-      <div class="divider"></div>
-      <div class="stat-item">
-        <div class="stat-label">时延</div>
-        <div class="stat-value" :class="{ error: latency < 0 }">
-          {{ latency >= 0 ? `${latency}ms` : 'N/A' }}
+    <!-- 速率模式 -->
+    <div v-if="displayMode === 'speed'" class="stats">
+      <div class="stat-group">
+        <div class="stat-item">
+          <span class="stat-icon">↑</span>
+          <span class="stat-label">上传</span>
+          <span class="stat-value">{{ formattedUploadSpeed }}</span>
         </div>
+
+        <div class="stat-item">
+          <span class="stat-icon">↓</span>
+          <span class="stat-label">下载</span>
+          <span class="stat-value">{{ formattedDownloadSpeed }}</span>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="latency-item">
+        <span class="latency-label">延迟</span>
+        <span class="latency-value" :class="{ testing: isTesting }">
+          {{ isTesting ? '测试中...' : formattedLatency }}
+        </span>
+      </div>
+    </div>
+
+    <!-- 流量模式 -->
+    <div v-else class="stats">
+      <div class="stat-group">
+        <div class="stat-item">
+          <span class="stat-icon">↑</span>
+          <span class="stat-label">上传</span>
+          <span class="stat-value traffic">{{ formattedTotalUpload }}</span>
+        </div>
+
+        <div class="stat-item">
+          <span class="stat-icon">↓</span>
+          <span class="stat-label">下载</span>
+          <span class="stat-value traffic">{{ formattedTotalDownload }}</span>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="latency-item">
+        <span class="latency-label">延迟</span>
+        <span class="latency-value" :class="{ testing: isTesting }">
+          {{ isTesting ? '测试中...' : formattedLatency }}
+        </span>
       </div>
     </div>
   </div>
@@ -187,6 +239,7 @@ defineExpose({
 .network-status {
   display: flex;
   align-items: center;
+  justify-content: center;
   padding: var(--spacing-xs) var(--spacing-sm);
   background-color: var(--bg-tertiary);
   border-radius: var(--radius-sm);
@@ -195,55 +248,68 @@ defineExpose({
   width: 100%;
   min-width: 0;
   overflow: hidden;
-}
-
-.network-status.disabled {
-  justify-content: center;
-  min-width: auto;
+  transition: all var(--transition-fast);
 }
 
 .network-status.clickable {
   cursor: pointer;
-  transition: all var(--transition-fast);
 }
 
 .network-status.clickable:hover {
   background-color: var(--bg-hover);
+  transform: translateY(-1px);
 }
 
 .network-status.clickable:active {
-  transform: scale(0.98);
+  transform: translateY(0);
 }
 
-.status-text {
-  font-weight: var(--font-weight-medium);
+.network-status.testing {
+  opacity: 0.8;
+}
+
+/* 速率模式样式 */
+.network-status.speed {
+  border-left: 3px solid #3b82f6;
+}
+
+/* 流量模式样式 */
+.network-status.traffic {
+  border-left: 3px solid #22c55e;
 }
 
 .stats {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 10px;
   width: 100%;
+}
+
+.stat-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
 }
 
 .stat-item {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  flex: 1 1 0;
-  min-width: 50px;
-  max-width: 100px;
+  gap: 6px;
+}
+
+.stat-icon {
+  font-size: 14px;
+  color: var(--text-tertiary);
+  font-weight: 600;
+  flex-shrink: 0;
 }
 
 .stat-label {
-  font-size: 9px;
+  font-size: 10px;
   color: var(--text-tertiary);
-  margin-bottom: 1px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  width: 100%;
-  text-align: center;
+  flex-shrink: 0;
+  min-width: 28px;
 }
 
 .stat-value {
@@ -251,20 +317,54 @@ defineExpose({
   font-weight: var(--font-weight-semibold);
   color: var(--accent-color);
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  width: 100%;
-  text-align: center;
+  font-family: monospace;
+  flex: 1;
+  text-align: left;
 }
 
-.stat-value.error {
-  color: var(--text-tertiary);
+.stat-value.traffic {
+  color: #22c55e;
 }
 
 .divider {
   width: 1px;
-  height: 20px;
+  height: 32px;
   background-color: var(--border-color);
   flex-shrink: 0;
+}
+
+.latency-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-width: 60px;
+}
+
+.latency-label {
+  font-size: 10px;
+  color: var(--text-tertiary);
+}
+
+.latency-value {
+  font-size: 11px;
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+  font-family: monospace;
+  white-space: nowrap;
+}
+
+.latency-value.testing {
+  color: var(--accent-color);
+  animation: pulse 1s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
 }
 </style>

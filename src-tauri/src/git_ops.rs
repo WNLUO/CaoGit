@@ -1,10 +1,12 @@
 use git2::{
-    BranchType, DiffOptions, Repository, Status, StatusOptions,
+    BranchType, DiffOptions, Repository, Status, StatusOptions, RemoteCallbacks, PushOptions, FetchOptions,
 };
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 use anyhow::{Context, Result};
 use chrono::{DateTime, Utc};
+use std::sync::{Arc, Mutex};
+use tauri::Emitter;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FileChange {
@@ -93,6 +95,16 @@ pub struct ConflictInfo {
     pub ours: String,
     pub theirs: String,
     pub base: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GitProgress {
+    pub operation_type: String, // "upload" or "download"
+    pub total_objects: usize,
+    pub received_objects: usize,
+    pub total_bytes: u64,
+    pub received_bytes: u64,
+    pub speed_bytes_per_sec: u64,
 }
 
 pub struct GitRepository {
@@ -355,9 +367,85 @@ impl GitRepository {
         Ok(())
     }
 
+    pub fn fetch_with_progress(&self, remote_name: &str, window: tauri::Window) -> Result<()> {
+        let mut remote = self.repo.find_remote(remote_name)?;
+
+        let mut callbacks = RemoteCallbacks::new();
+        let window_clone = window.clone();
+        let last_update = Arc::new(Mutex::new(std::time::Instant::now()));
+
+        callbacks.transfer_progress(move |stats| {
+            let mut last = last_update.lock().unwrap();
+            let now = std::time::Instant::now();
+
+            // 限制更新频率，每200ms更新一次
+            if now.duration_since(*last).as_millis() >= 200 {
+                let received_bytes = stats.received_bytes();
+                let total_objects = stats.total_objects();
+                let received_objects = stats.received_objects();
+
+                // 计算速度 (bytes/sec)
+                let duration = now.duration_since(*last).as_secs_f64();
+                let speed = if duration > 0.0 {
+                    (received_bytes as f64 / duration) as u64
+                } else {
+                    0
+                };
+
+                let progress = GitProgress {
+                    operation_type: "download".to_string(),
+                    total_objects,
+                    received_objects,
+                    total_bytes: received_bytes as u64,
+                    received_bytes: received_bytes as u64,
+                    speed_bytes_per_sec: speed,
+                };
+
+                let _ = window_clone.emit("git-progress", progress);
+                *last = now;
+            }
+
+            true
+        });
+
+        let mut fetch_options = FetchOptions::new();
+        fetch_options.remote_callbacks(callbacks);
+
+        remote.fetch(&[] as &[&str], Some(&mut fetch_options), None)?;
+        Ok(())
+    }
+
     pub fn pull(&self, remote_name: &str, branch_name: &str) -> Result<()> {
         // Fetch first
         self.fetch(remote_name)?;
+
+        // Get the remote branch
+        let fetch_head = self.repo.find_reference("FETCH_HEAD")?;
+        let fetch_commit = self.repo.reference_to_annotated_commit(&fetch_head)?;
+
+        // Perform merge analysis
+        let (analysis, _) = self.repo.merge_analysis(&[&fetch_commit])?;
+
+        if analysis.is_up_to_date() {
+            return Ok(());
+        } else if analysis.is_fast_forward() {
+            // Fast-forward merge
+            let refname = format!("refs/heads/{}", branch_name);
+            let mut reference = self.repo.find_reference(&refname)?;
+            reference.set_target(fetch_commit.id(), "Fast-forward")?;
+            self.repo.set_head(&refname)?;
+            self.repo.checkout_head(Some(git2::build::CheckoutBuilder::default().force()))?;
+        } else {
+            // Need to merge
+            self.repo.merge(&[&fetch_commit], None, None)?;
+        }
+
+        Ok(())
+    }
+
+    pub fn pull_with_progress(&self, remote_name: &str, branch_name: &str, window: tauri::Window) -> Result<()> {
+        // Fetch first with progress
+        self.fetch_with_progress(remote_name, window)?;
 
         // Get the remote branch
         let fetch_head = self.repo.find_reference("FETCH_HEAD")?;
@@ -387,6 +475,53 @@ impl GitRepository {
         let mut remote = self.repo.find_remote(remote_name)?;
         let refspec = format!("refs/heads/{}:refs/heads/{}", branch_name, branch_name);
         remote.push(&[&refspec], None)?;
+        Ok(())
+    }
+
+    pub fn push_with_progress(&self, remote_name: &str, branch_name: &str, window: tauri::Window) -> Result<()> {
+        let mut remote = self.repo.find_remote(remote_name)?;
+
+        let mut callbacks = RemoteCallbacks::new();
+        let window_clone = window.clone();
+        let last_update = Arc::new(Mutex::new(std::time::Instant::now()));
+        let last_bytes = Arc::new(Mutex::new(0usize));
+
+        callbacks.push_transfer_progress(move |current, total, bytes| {
+            let mut last = last_update.lock().unwrap();
+            let mut prev_bytes = last_bytes.lock().unwrap();
+            let now = std::time::Instant::now();
+
+            // 限制更新频率，每200ms更新一次
+            if now.duration_since(*last).as_millis() >= 200 {
+                // 计算速度 (bytes/sec)
+                let duration = now.duration_since(*last).as_secs_f64();
+                let bytes_diff = bytes.saturating_sub(*prev_bytes);
+                let speed = if duration > 0.0 {
+                    (bytes_diff as f64 / duration) as u64
+                } else {
+                    0
+                };
+
+                let progress = GitProgress {
+                    operation_type: "upload".to_string(),
+                    total_objects: total,
+                    received_objects: current,
+                    total_bytes: bytes as u64,
+                    received_bytes: bytes as u64,
+                    speed_bytes_per_sec: speed,
+                };
+
+                let _ = window_clone.emit("git-progress", progress);
+                *last = now;
+                *prev_bytes = bytes;
+            }
+        });
+
+        let mut push_options = PushOptions::new();
+        push_options.remote_callbacks(callbacks);
+
+        let refspec = format!("refs/heads/{}:refs/heads/{}", branch_name, branch_name);
+        remote.push(&[&refspec], Some(&mut push_options))?;
         Ok(())
     }
 

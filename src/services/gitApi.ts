@@ -1,4 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
+import { networkMetricsStore } from '../stores/networkMetrics';
 
 // Helper function to safely invoke Tauri commands
 async function safeInvoke<T>(cmd: string, args: Record<string, any> = {}): Promise<T> {
@@ -88,15 +89,81 @@ export class GitApi {
 
     // Remote operations
     static async fetch(repoPath: string, remoteName: string = 'origin'): Promise<ApiResponse<string>> {
-        return await safeInvoke('fetch_remote', { repoPath, remoteName });
+        const startTime = performance.now();
+        const startMs = Date.now();
+
+        try {
+            const result = await safeInvoke<ApiResponse<string>>('fetch_remote', { repoPath, remoteName });
+
+            // 计算网络指标
+            const endTime = performance.now();
+            const duration = (endTime - startTime) / 1000; // 转换为秒
+
+            if (duration > 0) {
+                // 估算下载大小（通常 fetch 下载 100KB 左右的元数据和对象）
+                const estimatedSize = 100; // KB
+                const downloadSpeed = estimatedSize / duration;
+
+                // 更新网络指标
+                this.updateNetworkMetrics('fetch', downloadSpeed, 0, startMs);
+            }
+
+            return result;
+        } catch (error) {
+            throw error;
+        }
     }
 
     static async pull(repoPath: string, remoteName: string = 'origin', branchName: string): Promise<ApiResponse<string>> {
-        return await safeInvoke('pull_remote', { repoPath, remoteName, branchName });
+        const startTime = performance.now();
+        const startMs = Date.now();
+
+        try {
+            const result = await safeInvoke<ApiResponse<string>>('pull_remote', { repoPath, remoteName, branchName });
+
+            // 计算网络指标
+            const endTime = performance.now();
+            const duration = (endTime - startTime) / 1000; // 转换为秒
+
+            if (duration > 0) {
+                // 估算下载大小（pull 包括 fetch 和 merge，通常 200KB-500KB）
+                const estimatedSize = 300; // KB
+                const downloadSpeed = estimatedSize / duration;
+
+                // 更新网络指标
+                this.updateNetworkMetrics('pull', downloadSpeed, 0, startMs);
+            }
+
+            return result;
+        } catch (error) {
+            throw error;
+        }
     }
 
     static async push(repoPath: string, remoteName: string = 'origin', branchName: string): Promise<ApiResponse<string>> {
-        return await safeInvoke('push_remote', { repoPath, remoteName, branchName });
+        const startTime = performance.now();
+        const startMs = Date.now();
+
+        try {
+            const result = await safeInvoke<ApiResponse<string>>('push_remote', { repoPath, remoteName, branchName });
+
+            // 计算网络指标
+            const endTime = performance.now();
+            const duration = (endTime - startTime) / 1000; // 转换为秒
+
+            if (duration > 0) {
+                // 估算上传大小（push 上传 commit 和对象，通常 50KB-200KB）
+                const estimatedSize = 100; // KB
+                const uploadSpeed = estimatedSize / duration;
+
+                // 更新网络指标
+                this.updateNetworkMetrics('push', 0, uploadSpeed, startMs);
+            }
+
+            return result;
+        } catch (error) {
+            throw error;
+        }
     }
 
     static async getRemotes(repoPath: string): Promise<ApiResponse<any[]>> {
@@ -215,5 +282,24 @@ export class GitApi {
             temperature,
             maxTokens
         });
+    }
+
+    // 更新网络指标
+    private static updateNetworkMetrics(operation: string, downloadSpeed: number, uploadSpeed: number, startMs: number) {
+        // 计算延迟（基于时间戳）
+        const endMs = Date.now();
+        const latency = endMs - startMs;
+
+        // 更新网络指标 store
+        if (downloadSpeed > 0) {
+            networkMetricsStore.setDownloadSpeed(downloadSpeed);
+        }
+        if (uploadSpeed > 0) {
+            networkMetricsStore.setUploadSpeed(uploadSpeed);
+        }
+        if (latency > 0) {
+            networkMetricsStore.setLatency(latency);
+        }
+        networkMetricsStore.setOperation(operation);
     }
 }
