@@ -1,6 +1,7 @@
 import { reactive, ref } from 'vue';
 import type { Repository, FileChange, Commit } from '../types';
 import { GitApi } from '../services/gitApi';
+import { cacheService } from '../services/cacheService';
 
 // Load repositories from localStorage
 function loadRepositories(): Repository[] {
@@ -42,12 +43,26 @@ export const repoStore = reactive({
         this.error = null;
 
         try {
-            await this.refreshStatus();
-            await this.refreshBranches();
+            // Parallel loading for better performance
+            const [statusResult, branchesResult] = await Promise.allSettled([
+                this.refreshStatus(),
+                this.refreshBranches()
+            ]);
+
+            // Handle errors from parallel operations
+            if (statusResult.status === 'rejected') {
+                throw new Error(statusResult.reason?.message || 'Failed to get repository status');
+            }
+            if (branchesResult.status === 'rejected') {
+                throw new Error(branchesResult.reason?.message || 'Failed to get branches');
+            }
+
             // Only try to load commits and current branch if there are any commits
             try {
-                await this.refreshCommits();
-                await this.refreshCurrentBranch();
+                await Promise.all([
+                    this.refreshCommits(),
+                    this.refreshCurrentBranch()
+                ]);
             } catch (error: any) {
                 // This is expected for newly initialized repos with no commits
                 if (error.message?.includes('reference') || error.message?.includes('not found')) {
@@ -88,12 +103,21 @@ export const repoStore = reactive({
         }
     },
 
-    async refreshCommits(maxCount: number = 100) {
+    async refreshCommits(maxCount: number = 100, offset: number = 0) {
         if (!this.activeRepo) return;
+
+        // Use cache for commits
+        const cacheKey = `commits:${this.activeRepo.path}:${maxCount}:${offset}`;
+        const cached = cacheService.get<Commit[]>(cacheKey);
+        if (cached) {
+            this.commits = offset === 0 ? cached : [...this.commits, ...cached];
+            return;
+        }
 
         const response = await GitApi.getCommits(this.activeRepo.path, maxCount);
         if (response.success && response.data) {
-            this.commits = response.data;
+            this.commits = offset === 0 ? response.data : [...this.commits, ...response.data];
+            cacheService.set(cacheKey, response.data, 30000); // Cache for 30s
         } else {
             throw new Error(response.error || 'Failed to get commits');
         }
@@ -135,8 +159,11 @@ export const repoStore = reactive({
 
         const response = await GitApi.commitChanges(this.activeRepo.path, message);
         if (response.success) {
-            await this.refreshStatus();
-            await this.refreshCommits();
+            // Parallel refresh for better performance
+            await Promise.all([
+                this.refreshStatus(),
+                this.refreshCommits()
+            ]);
             return response.data;
         } else {
             throw new Error(response.error || 'Failed to commit');
@@ -159,10 +186,13 @@ export const repoStore = reactive({
 
         const response = await GitApi.checkoutBranch(this.activeRepo.path, branchName);
         if (response.success) {
-            await this.refreshBranches();
-            await this.refreshStatus();
-            await this.refreshCommits();
-            await this.refreshCurrentBranch();
+            // Parallel refresh for better performance
+            await Promise.all([
+                this.refreshBranches(),
+                this.refreshStatus(),
+                this.refreshCommits(),
+                this.refreshCurrentBranch()
+            ]);
         } else {
             throw new Error(response.error || 'Failed to checkout branch');
         }
@@ -187,8 +217,18 @@ export const repoStore = reactive({
     removeRepository(id: number) {
         const index = this.repositories.findIndex(r => r.id === id);
         if (index !== -1) {
+            const repo = this.repositories[index];
             this.repositories.splice(index, 1);
             saveRepositories(this.repositories);
+            // Clear cache for this repo
+            cacheService.invalidatePattern(`.*:${repo.path}:.*`);
+        }
+    },
+
+    // Clear cache for active repo
+    clearCache() {
+        if (this.activeRepo) {
+            cacheService.invalidatePattern(`.*:${this.activeRepo.path}:.*`);
         }
     }
 });

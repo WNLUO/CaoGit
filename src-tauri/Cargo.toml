@@ -28,4 +28,6 @@ anyhow = "1.0"
 tokio = { version = "1", features = ["full"] }
 chrono = { version = "0.4", features = ["serde"] }
 home = "0.5"
+lazy_static = "1.4"
+lru = "0.12"
 
