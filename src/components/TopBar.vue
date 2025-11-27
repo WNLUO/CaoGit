@@ -60,8 +60,9 @@ async function handlePull() {
   progressMessage.value = `正在从 origin/${currentBranch.value} 拉取代码...`;
   showProgress.value = true;
 
-  // 确保 UI 更新
+  // 确保进度条先渲染，然后再执行耗时操作
   await nextTick();
+  await new Promise(resolve => setTimeout(resolve, 50));
 
   try {
     const response = await GitApi.pull(
@@ -99,8 +100,9 @@ async function handlePush() {
   progressMessage.value = `正在推送到 origin/${currentBranch.value}...`;
   showProgress.value = true;
 
-  // 确保 UI 更新
+  // 确保进度条先渲染，然后再执行耗时操作
   await nextTick();
+  await new Promise(resolve => setTimeout(resolve, 50));
 
   try {
     const response = await GitApi.push(
@@ -137,8 +139,9 @@ async function handleFetch() {
   progressMessage.value = '正在从 origin 获取更新...';
   showProgress.value = true;
 
-  // 确保 UI 更新
+  // 确保进度条先渲染，然后再执行耗时操作
   await nextTick();
+  await new Promise(resolve => setTimeout(resolve, 50));
 
   try {
     const response = await GitApi.fetch(repoStore.activeRepo.path, 'origin');
