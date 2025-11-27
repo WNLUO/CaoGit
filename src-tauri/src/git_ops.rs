@@ -169,7 +169,21 @@ impl GitRepository {
 
     pub fn stage_file(&self, path: &str) -> Result<()> {
         let mut index = self.repo.index()?;
-        index.add_path(Path::new(path))?;
+        let path_obj = Path::new(path);
+
+        // 检查文件是否存在于工作目录中
+        let workdir = self.repo.workdir()
+            .ok_or_else(|| anyhow::anyhow!("Repository has no working directory"))?;
+        let full_path = workdir.join(path_obj);
+
+        if full_path.exists() {
+            // 文件存在，使用 add_path
+            index.add_path(path_obj)?;
+        } else {
+            // 文件已删除，使用 remove_path
+            index.remove_path(path_obj)?;
+        }
+
         index.write()?;
         Ok(())
     }
