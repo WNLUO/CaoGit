@@ -5,6 +5,8 @@ import ChangesView from './ChangesView.vue';
 import HistoryView from './HistoryView.vue';
 import DiffView from './DiffView.vue';
 import Resizer from './Resizer.vue';
+import CommitFilter from './CommitFilter.vue';
+import type { FilterOptions } from './CommitFilter.vue';
 import { settingsStore } from '../stores/settingsStore';
 import { repoStore } from '../stores/repoStore';
 
@@ -15,6 +17,14 @@ defineProps<{
 const leftPanelWidth = ref(320);
 const rightPanelTopHeight = ref(60); // 百分比
 let refreshInterval: number | null = null;
+
+const historyFilterOptions = ref<FilterOptions>({
+  searchText: '',
+  author: '',
+  dateFrom: '',
+  dateTo: '',
+  branch: ''
+});
 
 onMounted(() => {
   // 从设置中恢复面板宽度和高度
@@ -74,6 +84,10 @@ function handleTopPaneResize(delta: number) {
   rightPanelTopHeight.value = newTopHeight;
   settingsStore.updateLayoutSettings({ rightPanelTopHeight: newTopHeight });
 }
+
+function handleHistoryFilter(options: FilterOptions) {
+  historyFilterOptions.value = options;
+}
 </script>
 
 <template>
@@ -96,8 +110,16 @@ function handleTopPaneResize(delta: number) {
       <Resizer direction="vertical" @resize="handleTopPaneResize" />
 
       <div class="bottom-pane" :style="{ flex: `${100 - rightPanelTopHeight}%` }">
-        <div class="pane-header">提交历史 (HISTORY)</div>
-        <HistoryView />
+        <div class="pane-header-container">
+          <div class="pane-header-title">提交历史 (HISTORY)</div>
+          <div class="pane-header-actions">
+            <CommitFilter
+              :branches="[]"
+              @filter="handleHistoryFilter"
+            />
+          </div>
+        </div>
+        <HistoryView :filter-options="historyFilterOptions" />
       </div>
     </div>
   </div>
@@ -149,13 +171,30 @@ function handleTopPaneResize(delta: number) {
   min-height: 0;
 }
 
-.pane-header {
+.pane-header-container {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   padding: var(--spacing-xs) var(--spacing-md);
+  background-color: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-color);
+  gap: var(--spacing-md);
+  flex-shrink: 0;
+}
+
+.pane-header-title {
   font-size: 0.75rem;
   font-weight: 600;
   color: var(--text-tertiary);
   text-transform: uppercase;
-  background-color: var(--bg-secondary);
-  border-bottom: 1px solid var(--border-color);
+  white-space: nowrap;
+}
+
+.pane-header-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  flex: 1;
+  justify-content: flex-end;
 }
 </style>

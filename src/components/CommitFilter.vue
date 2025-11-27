@@ -59,14 +59,13 @@ function handleSearch(value: string) {
 
 <template>
   <div class="commit-filter">
-    <div class="filter-header">
-      <div class="search-section">
-        <SearchBar
-          v-model="searchText"
-          placeholder="搜索提交消息、哈希..."
-          @search="handleSearch"
-        />
-      </div>
+    <!-- 紧凑头部：搜索框 + 筛选按钮 -->
+    <div class="filter-compact-header">
+      <SearchBar
+        v-model="searchText"
+        placeholder="搜索提交..."
+        @search="handleSearch"
+      />
 
       <button
         class="filter-toggle"
@@ -81,6 +80,7 @@ function handleSearch(value: string) {
       </button>
     </div>
 
+    <!-- 展开的筛选面板 -->
     <div v-if="isExpanded" class="filter-panel">
       <div class="filter-row">
         <div class="filter-field">
@@ -135,19 +135,15 @@ function handleSearch(value: string) {
 
 <style scoped>
 .commit-filter {
-  background-color: var(--bg-secondary);
-  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
 }
 
-.filter-header {
+.filter-compact-header {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 12px;
-}
-
-.search-section {
-  flex: 1;
+  gap: 8px;
+  padding: 0;
 }
 
 .filter-toggle {

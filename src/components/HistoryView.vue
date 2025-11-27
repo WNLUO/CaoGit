@@ -3,19 +3,25 @@ import { ref, computed } from 'vue';
 import { repoStore } from '../stores/repoStore';
 import { GitApi } from '../services/gitApi';
 import VirtualScroller from './VirtualScroller.vue';
-import CommitFilter from './CommitFilter.vue';
 import ContextMenu from './ContextMenu.vue';
 import type { FilterOptions } from './CommitFilter.vue';
 import type { CommitInfo } from '../types';
 
-const isLoadingMore = ref(false);
-const filterOptions = ref<FilterOptions>({
-  searchText: '',
-  author: '',
-  dateFrom: '',
-  dateTo: '',
-  branch: ''
+interface Props {
+  filterOptions?: FilterOptions;
+}
+
+const props = withDefaults(defineProps<Props>(), {
+  filterOptions: () => ({
+    searchText: '',
+    author: '',
+    dateFrom: '',
+    dateTo: '',
+    branch: ''
+  })
 });
+
+const isLoadingMore = ref(false);
 
 // Context menu state
 const contextMenu = ref<{
@@ -33,16 +39,12 @@ const contextMenu = ref<{
 // Multi-selection state
 const selectedCommits = ref<Set<string>>(new Set());
 
-const branchNames = computed(() => {
-  return repoStore.branches.map(b => b.name);
-});
-
 const filteredCommits = computed(() => {
   let commits = repoStore.commits;
 
   // Search text filter (message or hash)
-  if (filterOptions.value.searchText) {
-    const searchLower = filterOptions.value.searchText.toLowerCase();
+  if (props.filterOptions?.searchText) {
+    const searchLower = props.filterOptions.searchText.toLowerCase();
     commits = commits.filter(c =>
       c.message.toLowerCase().includes(searchLower) ||
       c.hash.toLowerCase().includes(searchLower)
@@ -50,8 +52,8 @@ const filteredCommits = computed(() => {
   }
 
   // Author filter
-  if (filterOptions.value.author) {
-    const authorLower = filterOptions.value.author.toLowerCase();
+  if (props.filterOptions?.author) {
+    const authorLower = props.filterOptions.author.toLowerCase();
     commits = commits.filter(c =>
       c.author.toLowerCase().includes(authorLower) ||
       c.email.toLowerCase().includes(authorLower)
@@ -59,12 +61,12 @@ const filteredCommits = computed(() => {
   }
 
   // Date range filter
-  if (filterOptions.value.dateFrom) {
-    const fromDate = new Date(filterOptions.value.dateFrom);
+  if (props.filterOptions?.dateFrom) {
+    const fromDate = new Date(props.filterOptions.dateFrom);
     commits = commits.filter(c => new Date(c.date) >= fromDate);
   }
-  if (filterOptions.value.dateTo) {
-    const toDate = new Date(filterOptions.value.dateTo);
+  if (props.filterOptions?.dateTo) {
+    const toDate = new Date(props.filterOptions.dateTo);
     toDate.setHours(23, 59, 59, 999); // End of day
     commits = commits.filter(c => new Date(c.date) <= toDate);
   }
@@ -119,10 +121,6 @@ async function loadMoreCommits() {
   } finally {
     isLoadingMore.value = false;
   }
-}
-
-function handleFilter(options: FilterOptions) {
-  filterOptions.value = options;
 }
 
 function handleCommitClick(commit: CommitInfo, event: MouseEvent) {
@@ -217,11 +215,6 @@ function isCommitSelected(hash: string) {
 
 <template>
   <div class="history-view">
-    <CommitFilter
-      :branches="branchNames"
-      @filter="handleFilter"
-    />
-
     <div class="history-header">
       <table class="commit-table-header">
         <thead>

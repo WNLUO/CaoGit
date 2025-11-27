@@ -76,14 +76,43 @@ async function loadRemoteConfig() {
         const origin = remotes.value.find(r => r.name === 'origin');
         selectedRemote.value = origin ? origin.name : remotes.value[0].name;
 
-        // 自动识别协议
+        // 自动识别协议并提取认证信息
         const remote = origin || remotes.value[0];
-        if (remote.url.startsWith('git@') || remote.url.startsWith('ssh://')) {
+        const url = remote.url;
+
+        if (url.startsWith('git@') || url.startsWith('ssh://')) {
           repoProtocol.value = 'ssh';
-        } else if (remote.url.startsWith('https://')) {
-          repoProtocol.value = 'https';
-        } else if (remote.url.startsWith('http://')) {
-          repoProtocol.value = 'http';
+          repoAuthType.value = 'none'; // SSH通常使用密钥
+        } else if (url.startsWith('https://') || url.startsWith('http://')) {
+          // 检测协议
+          repoProtocol.value = url.startsWith('https://') ? 'https' : 'http';
+
+          // 尝试从URL中提取认证信息
+          // 格式: https://token@github.com/user/repo.git
+          // 或: https://username:password@github.com/user/repo.git
+          const urlPattern = /^https?:\/\/([^@]+)@/;
+          const match = url.match(urlPattern);
+
+          if (match) {
+            const authPart = match[1];
+
+            // 检查是否包含冒号(用户名:密码格式)
+            if (authPart.includes(':')) {
+              const [username, password] = authPart.split(':');
+              repoAuthType.value = 'password';
+              repoUsername.value = decodeURIComponent(username);
+              repoPassword.value = decodeURIComponent(password);
+            } else {
+              // 单独的token
+              repoAuthType.value = 'token';
+              repoToken.value = decodeURIComponent(authPart);
+            }
+          } else {
+            // 没有嵌入认证信息,检查已保存的配置
+            if (!props.repo.authType || props.repo.authType === 'none') {
+              repoAuthType.value = 'none';
+            }
+          }
         }
       }
     }
@@ -197,7 +226,52 @@ const newRemoteUrl = ref('');
 const editingRemote = ref<{name: string, url: string} | null>(null);
 const showAddRemoteForm = ref(false);
 
-// @ts-ignore
+// 认证配置编辑状态
+const editingAuth = ref(false);
+
+// 保存编辑前的值
+const authBackup = ref<{
+  protocol: 'http' | 'https' | 'ssh';
+  authType: 'none' | 'token' | 'password';
+  token: string;
+  username: string;
+  password: string;
+}>({
+  protocol: 'https',
+  authType: 'none',
+  token: '',
+  username: '',
+  password: ''
+});
+
+function startEditAuth() {
+  // 备份当前值
+  authBackup.value = {
+    protocol: repoProtocol.value,
+    authType: repoAuthType.value,
+    token: repoToken.value,
+    username: repoUsername.value,
+    password: repoPassword.value
+  };
+  editingAuth.value = true;
+}
+
+function cancelEditAuth() {
+  // 恢复备份的值
+  repoProtocol.value = authBackup.value.protocol;
+  repoAuthType.value = authBackup.value.authType;
+  repoToken.value = authBackup.value.token;
+  repoUsername.value = authBackup.value.username;
+  repoPassword.value = authBackup.value.password;
+  editingAuth.value = false;
+}
+
+function saveAuth() {
+  // 保存在总的save函数中处理
+  editingAuth.value = false;
+  save();
+}
+
 function toggleAddRemoteForm() {
   showAddRemoteForm.value = !showAddRemoteForm.value;
   if (!showAddRemoteForm.value) {
@@ -423,7 +497,7 @@ function save() {
           <div class="platform-section">
             <label class="checkbox-label">
               <input type="checkbox" v-model="githubEnabled">
-              <span class="platform-name">🐙 GitHub</span>
+              <span class="platform-name">GitHub</span>
             </label>
 
             <div v-if="githubEnabled" class="platform-config">
@@ -463,7 +537,7 @@ function save() {
           <div class="platform-section">
             <label class="checkbox-label">
               <input type="checkbox" v-model="gitlabEnabled">
-              <span class="platform-name">🦊 GitLab</span>
+              <span class="platform-name">GitLab</span>
             </label>
 
             <div v-if="gitlabEnabled" class="platform-config">
@@ -503,7 +577,7 @@ function save() {
           <div class="platform-section">
             <label class="checkbox-label">
               <input type="checkbox" v-model="giteeEnabled">
-              <span class="platform-name">🔴 Gitee</span>
+              <span class="platform-name">Gitee</span>
             </label>
 
             <div v-if="giteeEnabled" class="platform-config">
@@ -645,47 +719,86 @@ function save() {
 
           <div class="divider"></div>
 
-          <h5>认证配置</h5>
-          <p class="hint auth-hint">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display: inline; vertical-align: text-top;">
-              <circle cx="12" cy="12" r="10"></circle>
-              <line x1="12" y1="16" x2="12" y2="12"></line>
-              <line x1="12" y1="8" x2="12.01" y2="8"></line>
-            </svg>
-            <strong>重要说明:</strong> 远程仓库URL不包含认证信息。这些设置保存在本地,用于Git推送/拉取时的身份验证。
-          </p>
-
-          <div class="input-group">
-            <label>传输协议 (已根据远程URL自动识别)</label>
-            <select v-model="repoProtocol">
-              <option value="https">HTTPS</option>
-              <option value="ssh">SSH</option>
-              <option value="http">HTTP</option>
-            </select>
-          </div>
-
-          <div class="input-group">
-            <label>认证方式</label>
-            <select v-model="repoAuthType">
-              <option value="none">无 (公开仓库/SSH Key)</option>
-              <option value="token">Token (推荐)</option>
-              <option value="password">用户名/密码</option>
-            </select>
-          </div>
-
-          <div v-if="repoAuthType === 'token'" class="input-group">
-            <label>Access Token</label>
-            <input v-model="repoToken" type="password" placeholder="ghp_...">
-          </div>
-
-          <div v-if="repoAuthType === 'password'" class="input-row">
-            <div class="input-group">
-              <label>用户名</label>
-              <input v-model="repoUsername" type="text">
+          <div class="auth-section">
+            <div class="section-header">
+              <h5>认证配置</h5>
+              <button v-if="!editingAuth" class="btn-edit-small" @click="startEditAuth">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                </svg>
+                修改
+              </button>
             </div>
-            <div class="input-group">
-              <label>密码</label>
-              <input v-model="repoPassword" type="password">
+
+            <!-- 展示模式 -->
+            <div v-if="!editingAuth" class="auth-display">
+              <div class="auth-item">
+                <span class="auth-label">传输协议:</span>
+                <span class="auth-value">{{ repoProtocol ? repoProtocol.toUpperCase() : '未设置' }}</span>
+              </div>
+              <div class="auth-item">
+                <span class="auth-label">认证方式:</span>
+                <span class="auth-value">
+                  {{ repoAuthType === 'none' ? '无 (公开仓库/SSH Key)' :
+                     repoAuthType === 'token' ? 'Token' :
+                     repoAuthType === 'password' ? '用户名/密码' : '未设置' }}
+                </span>
+              </div>
+              <div v-if="repoAuthType === 'token' && repoToken" class="auth-item">
+                <span class="auth-label">Token:</span>
+                <span class="auth-value">{{ '•'.repeat(20) }}</span>
+              </div>
+              <div v-if="repoAuthType === 'password' && repoUsername" class="auth-item">
+                <span class="auth-label">用户名:</span>
+                <span class="auth-value">{{ repoUsername }}</span>
+              </div>
+              <div v-if="repoAuthType === 'password' && repoPassword" class="auth-item">
+                <span class="auth-label">密码:</span>
+                <span class="auth-value">{{ '•'.repeat(12) }}</span>
+              </div>
+            </div>
+
+            <!-- 编辑模式 -->
+            <div v-else class="auth-edit">
+              <div class="input-group">
+                <label>传输协议</label>
+                <select v-model="repoProtocol">
+                  <option value="https">HTTPS</option>
+                  <option value="ssh">SSH</option>
+                  <option value="http">HTTP</option>
+                </select>
+              </div>
+
+              <div class="input-group">
+                <label>认证方式</label>
+                <select v-model="repoAuthType">
+                  <option value="none">无 (公开仓库/SSH Key)</option>
+                  <option value="token">Token (推荐)</option>
+                  <option value="password">用户名/密码</option>
+                </select>
+              </div>
+
+              <div v-if="repoAuthType === 'token'" class="input-group">
+                <label>Access Token</label>
+                <input v-model="repoToken" type="password" placeholder="ghp_...">
+              </div>
+
+              <div v-if="repoAuthType === 'password'" class="input-row">
+                <div class="input-group">
+                  <label>用户名</label>
+                  <input v-model="repoUsername" type="text">
+                </div>
+                <div class="input-group">
+                  <label>密码</label>
+                  <input v-model="repoPassword" type="password">
+                </div>
+              </div>
+
+              <div class="auth-actions">
+                <button class="btn-cancel" @click="cancelEditAuth">取消</button>
+                <button class="btn-save" @click="saveAuth">保存</button>
+              </div>
             </div>
           </div>
 
@@ -1197,19 +1310,106 @@ select:focus {
   background-color: var(--bg-hover);
 }
 
-.auth-hint {
-  background-color: rgba(59, 130, 246, 0.1);
-  border-left: 3px solid var(--accent-color);
-  padding: var(--spacing-sm) var(--spacing-md);
-  border-radius: var(--radius-sm);
-  display: flex;
-  gap: var(--spacing-sm);
-  align-items: flex-start;
+/* 认证配置样式 */
+.auth-section {
+  margin-bottom: var(--spacing-lg);
 }
 
-.auth-hint svg {
-  flex-shrink: 0;
-  color: var(--accent-color);
-  margin-top: 2px;
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--spacing-md);
+}
+
+.section-header h5 {
+  margin: 0;
+}
+
+.btn-edit-small {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  background-color: var(--bg-secondary);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-color);
+  font-size: var(--font-size-xs);
+  transition: all var(--transition-fast);
+}
+
+.btn-edit-small:hover {
+  background-color: var(--bg-hover);
+  color: var(--text-primary);
+  border-color: var(--accent-color);
+}
+
+.auth-display {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-md);
+  background-color: var(--bg-secondary);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-color);
+}
+
+.auth-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 0;
+}
+
+.auth-label {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.auth-value {
+  font-size: var(--font-size-sm);
+  color: var(--text-primary);
+  font-weight: 600;
+  font-family: monospace;
+}
+
+.auth-edit {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
+.auth-actions {
+  display: flex;
+  gap: var(--spacing-sm);
+  justify-content: flex-end;
+  padding-top: var(--spacing-sm);
+}
+
+.auth-actions .btn-cancel {
+  padding: var(--spacing-sm) var(--spacing-md);
+  border-radius: var(--radius-md);
+  background-color: var(--bg-secondary);
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  border: 1px solid var(--border-color);
+}
+
+.auth-actions .btn-cancel:hover {
+  background-color: var(--bg-hover);
+}
+
+.auth-actions .btn-save {
+  padding: var(--spacing-sm) var(--spacing-md);
+  border-radius: var(--radius-md);
+  background-color: var(--accent-color);
+  color: white;
+  font-size: var(--font-size-sm);
+}
+
+.auth-actions .btn-save:hover {
+  background-color: var(--accent-hover);
 }
 </style>
