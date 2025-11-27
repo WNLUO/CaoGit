@@ -158,6 +158,22 @@ function removeRepository() {
   }
 }
 
+// 从 URL 中移除 token 信息（如果有）
+function removeTokenFromUrl(url: string): string {
+  try {
+    // 处理 HTTPS 形式的 URL: https://token@host/path 或 https://user:token@host/path
+    const httpsMatch = url.match(/^(https?:\/\/)([^@]+@)(.+)$/);
+    if (httpsMatch) {
+      return `${httpsMatch[1]}${httpsMatch[3]}`;
+    }
+
+    // 处理 SSH 形式的 URL 不需要修改，token 通常在 SSH key 中
+    return url;
+  } catch (error) {
+    return url;
+  }
+}
+
 async function copyRepositoryLink() {
   if (!contextMenuRepo.value) return;
 
@@ -172,7 +188,10 @@ async function copyRepositoryLink() {
     if (response.success && response.data && response.data.length > 0) {
       // 优先使用 origin 远程，其次使用第一个远程
       const origin = response.data.find((r: any) => r.name === 'origin');
-      linkToCopy = origin?.url || response.data[0]?.url || repo.path;
+      let url = origin?.url || response.data[0]?.url || repo.path;
+
+      // 移除 URL 中的 token 部分
+      linkToCopy = removeTokenFromUrl(url);
     }
 
     // 使用可靠的复制方法
