@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch, onMounted } from 'vue';
+import { ref, computed, watch, onMounted, nextTick } from 'vue';
 import { repoStore } from '../stores/repoStore';
 import { toastStore } from '../stores/toastStore';
 import { GitApi } from '../services/gitApi';
@@ -54,10 +54,14 @@ async function handlePull() {
     return;
   }
 
+  // 立即显示进度条
   isPulling.value = true;
-  showProgress.value = true;
   progressOperation.value = 'pull';
   progressMessage.value = `正在从 origin/${currentBranch.value} 拉取代码...`;
+  showProgress.value = true;
+
+  // 确保 UI 更新
+  await nextTick();
 
   try {
     const response = await GitApi.pull(
@@ -89,10 +93,14 @@ async function handlePush() {
     return;
   }
 
+  // 立即显示进度条
   isPushing.value = true;
-  showProgress.value = true;
   progressOperation.value = 'push';
   progressMessage.value = `正在推送到 origin/${currentBranch.value}...`;
+  showProgress.value = true;
+
+  // 确保 UI 更新
+  await nextTick();
 
   try {
     const response = await GitApi.push(
@@ -123,10 +131,14 @@ async function handleFetch() {
     return;
   }
 
+  // 立即显示进度条
   isFetching.value = true;
-  showProgress.value = true;
   progressOperation.value = 'fetch';
   progressMessage.value = '正在从 origin 获取更新...';
+  showProgress.value = true;
+
+  // 确保 UI 更新
+  await nextTick();
 
   try {
     const response = await GitApi.fetch(repoStore.activeRepo.path, 'origin');
