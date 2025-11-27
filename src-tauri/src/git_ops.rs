@@ -520,6 +520,57 @@ impl GitRepository {
 
     // Get detailed file diff
     pub fn get_file_diff(&self, file_path: &str, staged: bool) -> Result<DiffResult> {
+        // Check if this is a new file (untracked)
+        let mut status_opts = StatusOptions::new();
+        status_opts.include_untracked(true);
+        let statuses = self.repo.statuses(Some(&mut status_opts))?;
+
+        let is_new_file = statuses.iter().any(|entry| {
+            entry.path().map(|p| p == file_path).unwrap_or(false)
+                && entry.status().contains(Status::WT_NEW)
+        });
+
+        // For new files, read the entire file content and display as additions
+        if is_new_file && !staged {
+            use std::fs;
+            use std::path::PathBuf;
+
+            let file_full_path = PathBuf::from(self.repo.path().parent().unwrap()).join(file_path);
+            let content = fs::read_to_string(&file_full_path)
+                .context(format!("Failed to read file: {}", file_path))?;
+
+            let lines: Vec<&str> = content.lines().collect();
+            let total_lines = lines.len() as u32;
+
+            // Create a single hunk representing the entire new file
+            let mut diff_lines = Vec::new();
+            for (i, line) in lines.iter().enumerate() {
+                diff_lines.push(DiffLine {
+                    origin: '+',  // All lines are additions
+                    content: line.to_string() + "\n",
+                    old_lineno: None,  // No old line numbers for new file
+                    new_lineno: Some((i + 1) as u32),
+                });
+            }
+
+            let hunk = DiffHunk {
+                old_start: 0,
+                old_lines: 0,
+                new_start: 1,
+                new_lines: total_lines,
+                header: format!("@@ -0,0 +1,{} @@ New file", total_lines),
+                lines: diff_lines,
+            };
+
+            return Ok(DiffResult {
+                old_path: "/dev/null".to_string(),
+                new_path: file_path.to_string(),
+                status: "Added".to_string(),
+                hunks: vec![hunk],
+            });
+        }
+
+        // Original logic for non-new files
         let mut diff_opts = DiffOptions::new();
         diff_opts.pathspec(file_path);
 

@@ -193,4 +193,23 @@ export class GitApi {
     static async setWindowTheme(theme: 'light' | 'dark' | 'auto'): Promise<ApiResponse<string>> {
         return await safeInvoke('set_window_theme', { theme });
     }
+
+    // AI API operations
+    static async callAIApi(
+        endpoint: string,
+        apiKey: string,
+        model: string,
+        messages: Array<{ role: string; content: string }>,
+        temperature: number,
+        maxTokens: number
+    ): Promise<ApiResponse<string>> {
+        return await safeInvoke('call_ai_api', {
+            endpoint,
+            apiKey,
+            model,
+            messages,
+            temperature,
+            maxTokens
+        });
+    }
 }

@@ -4,9 +4,11 @@ import { repoStore } from '../stores/repoStore';
 import type { FileChange } from '../types';
 import AISettingsModal, { type AISettings } from './AISettingsModal.vue';
 import FileIcon from './FileIcon.vue';
+import { GitApi } from '../services/gitApi';
 
 const commitMessage = ref('');
 const isCommitting = ref(false);
+const isGeneratingAI = ref(false);
 const showAISettings = ref(false);
 
 const stagedFiles = computed(() => repoStore.fileChanges.filter(f => f.staged));
@@ -55,7 +57,32 @@ function selectFile(file: FileChange) {
 }
 
 async function doCommit() {
-  if (!commitMessage.value.trim() || stagedFiles.value.length === 0) {
+  if (!commitMessage.value.trim()) {
+    alert('请输入提交信息');
+    return;
+  }
+
+  if (!repoStore.activeRepo) {
+    alert('请先打开一个仓库');
+    return;
+  }
+
+  // 如果没有暂存的文件，自动暂存所有变更
+  if (stagedFiles.value.length === 0 && unstagedFiles.value.length > 0) {
+    try {
+      // 暂存所有文件
+      await Promise.all(
+        unstagedFiles.value.map(file => repoStore.stageFile(file.path))
+      );
+    } catch (error: any) {
+      alert('自动暂存文件失败: ' + error.message);
+      return;
+    }
+  }
+
+  // 再次检查是否有暂存的文件
+  if (stagedFiles.value.length === 0) {
+    alert('没有文件需要提交');
     return;
   }
 
@@ -72,8 +99,14 @@ async function doCommit() {
 }
 
 async function generateAICommitMessage() {
-  if (stagedFiles.value.length === 0) {
-    alert('请先暂存需要提交的文件');
+  if (!repoStore.activeRepo) {
+    alert('请先打开一个仓库');
+    return;
+  }
+
+  // 检查是否有变更的文件（暂存或未暂存）
+  if (repoStore.fileChanges.length === 0) {
+    alert('没有文件变更，无需生成提交信息');
     return;
   }
 
@@ -85,21 +118,94 @@ async function generateAICommitMessage() {
     return;
   }
 
+  isGeneratingAI.value = true;
+
   try {
     const settings: AISettings = JSON.parse(savedSettings);
 
     if (!settings.apiKey) {
       alert('请先配置 API Key');
       showAISettings.value = true;
+      isGeneratingAI.value = false;
       return;
     }
 
-    // TODO: Call AI API to generate commit message
-    // For now, show a placeholder
-    alert('AI 生成功能即将实现！请先配置 AI 设置。');
+    // 显示加载状态
+    commitMessage.value = '正在生成提交信息...';
+
+    // 获取所有变更文件的 diff
+    const diffs: string[] = [];
+    for (const file of repoStore.fileChanges) {
+      try {
+        const response = await GitApi.getFileDiff(
+          repoStore.activeRepo.path,
+          file.path,
+          file.staged
+        );
+
+        if (response.success && response.data) {
+          // 构建简化的 diff 信息
+          let fileDiff = `File: ${file.path} (${file.status})\n`;
+
+          if (response.data.hunks && response.data.hunks.length > 0) {
+            for (const hunk of response.data.hunks) {
+              fileDiff += `${hunk.header}\n`;
+              // 只包含变更行，限制长度
+              const changes = hunk.lines
+                .filter(line => line.origin === '+' || line.origin === '-')
+                .slice(0, 20) // 限制每个 hunk 最多 20 行
+                .map(line => `${line.origin}${line.content}`)
+                .join('\n');
+              fileDiff += changes + '\n';
+            }
+          }
+
+          diffs.push(fileDiff);
+        }
+      } catch (error) {
+        console.error(`Failed to get diff for ${file.path}:`, error);
+      }
+    }
+
+    const diffContext = diffs.join('\n---\n').slice(0, 8000); // 限制总长度
+
+    // 通过 Rust 后端调用 AI API
+    const response = await GitApi.callAIApi(
+      settings.apiEndpoint,
+      settings.apiKey,
+      settings.model,
+      [
+        {
+          role: 'system',
+          content: settings.systemPrompt
+        },
+        {
+          role: 'user',
+          content: `请基于以下代码变更生成简洁的提交信息（${settings.language}）：\n\n${diffContext}`
+        }
+      ],
+      settings.temperature,
+      settings.maxTokens
+    );
+
+    if (!response.success || !response.data) {
+      throw new Error(response.error || 'AI API 调用失败');
+    }
+
+    const generatedMessage = response.data.trim();
+
+    if (generatedMessage) {
+      commitMessage.value = generatedMessage;
+    } else {
+      throw new Error('AI 返回了空的提交信息');
+    }
 
   } catch (error: any) {
+    console.error('AI 生成失败:', error);
+    commitMessage.value = '';
     alert('AI 生成失败: ' + error.message);
+  } finally {
+    isGeneratingAI.value = false;
   }
 }
 
@@ -203,7 +309,13 @@ function getStatusColor(status: FileChange['status']) {
         <div class="section-header">
           <span>提交信息</span>
           <div class="ai-actions">
-            <button class="ai-btn" @click="generateAICommitMessage">AI生成</button>
+            <button
+              class="ai-btn"
+              :disabled="isGeneratingAI || repoStore.fileChanges.length === 0"
+              @click="generateAICommitMessage"
+            >
+              {{ isGeneratingAI ? '生成中...' : 'AI生成' }}
+            </button>
             <button class="ai-settings-btn" @click="showAISettings = true" title="AI设置">
               <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51h.15a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
             </button>
@@ -219,10 +331,10 @@ function getStatusColor(status: FileChange['status']) {
 
         <button
           class="commit-btn"
-          :disabled="stagedFiles.length === 0 || !commitMessage || isCommitting"
+          :disabled="!commitMessage || isCommitting || repoStore.fileChanges.length === 0"
           @click="doCommit"
         >
-          {{ isCommitting ? '提交中...' : '提交至 ' + repoStore.currentBranch }}
+          {{ isCommitting ? '提交中...' : (stagedFiles.length === 0 ? '暂存并提交至 ' : '提交至 ') + repoStore.currentBranch }}
         </button>
       </div>
     </div>
@@ -404,10 +516,16 @@ function getStatusColor(status: FileChange['status']) {
   background-color: #f3e8ff;
   padding: 2px 8px;
   border-radius: var(--radius-sm);
+  transition: all var(--transition-fast);
 }
 
-.ai-btn:hover {
+.ai-btn:hover:not(:disabled) {
   background-color: #e9d5ff;
+}
+
+.ai-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .ai-settings-btn {

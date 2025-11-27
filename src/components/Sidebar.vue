@@ -109,7 +109,7 @@ const contextMenuItems = computed(() => [
 <template>
   <aside class="sidebar">
     <div class="sidebar-header">
-      <h2>Git Manager</h2>
+      <h2>Git管理器</h2>
     </div>
     
     <div class="repo-list">

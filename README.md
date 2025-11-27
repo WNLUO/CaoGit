@@ -1,4 +1,4 @@
-# Git Manager
+# Git管理器
 
 一个功能强大的跨平台 Git 图形化客户端，基于 Tauri + Vue 3 + TypeScript 构建。
 
@@ -171,7 +171,7 @@ npm run tauri build
 
 ## 🆚 与其他工具对比
 
-| 功能 | Git Manager | GitKraken | GitHub Desktop | SourceTree |
+| 功能 | Git管理器 | GitKraken | GitHub Desktop | SourceTree |
 |------|-------------|-----------|----------------|------------|
 | 分支可视化 | ✅ | ✅ | ❌ | ✅ |
 | 并排 Diff | ✅ | ✅ | ⚠️ | ✅ |

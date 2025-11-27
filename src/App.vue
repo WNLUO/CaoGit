@@ -61,7 +61,7 @@ function handleRepoAdded(_path: string) {
               </svg>
             </div>
 
-            <h1>欢迎使用 Git Manager</h1>
+            <h1>欢迎使用 Git管理器</h1>
             <p class="welcome-subtitle">现代化的 Git 仓库管理工具</p>
 
             <div class="quick-actions">

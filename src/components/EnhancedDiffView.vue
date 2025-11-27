@@ -126,10 +126,6 @@ function getLinePrefix(origin: string) {
     <div v-else-if="!selectedFile" class="no-diff">
       <div class="no-diff-message">选择文件以查看差异</div>
     </div>
-    <div v-else-if="selectedFile && selectedFile.status === 'untracked'" class="no-diff">
-      <div class="no-diff-message">新文件</div>
-      <div class="no-diff-hint">这是一个未跟踪的新文件，暂存后才能查看完整内容</div>
-    </div>
     <div v-else class="no-diff">
       <div class="no-diff-message">无差异数据</div>
       <div class="no-diff-hint">该文件可能没有变更</div>

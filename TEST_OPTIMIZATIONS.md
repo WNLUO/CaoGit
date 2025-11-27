@@ -362,7 +362,7 @@ async loadRepoData(repo: Repository) {
 
 ## 🎊 测试完成
 
-如果所有测试通过,恭喜! 您的 Git Manager 已经:
+如果所有测试通过,恭喜! 您的 Git管理器 已经:
 
 ✅ **性能提升 60%+**
 ✅ **支持超大仓库**
