@@ -1,4 +1,4 @@
-use crate::git_ops::{GitRepository, FileChange, CommitInfo, BranchInfo, RemoteInfo, StashInfo, TagInfo, DiffResult};
+use crate::git_ops::{GitRepository, FileChange, CommitInfo, BranchInfo, RemoteInfo, StashInfo, TagInfo, DiffResult, BlameLine};
 use serde::Serialize;
 
 #[derive(Debug, Serialize)]
@@ -455,4 +455,15 @@ fn detect_type_from_files(files: &[String]) -> String {
     }
 
     "none".to_string()
+}
+
+#[tauri::command]
+pub fn get_file_blame(repo_path: String, file_path: String) -> ApiResponse<Vec<BlameLine>> {
+    match GitRepository::open(&repo_path) {
+        Ok(repo) => match repo.blame_file(&file_path) {
+            Ok(blame) => ApiResponse::success(blame),
+            Err(e) => ApiResponse::error(e.to_string()),
+        },
+        Err(e) => ApiResponse::error(e.to_string()),
+    }
 }

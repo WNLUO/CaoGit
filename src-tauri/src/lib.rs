@@ -39,6 +39,7 @@ pub fn run() {
             clone_repository,
             init_repository,
             detect_project_type,
+            get_file_blame,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

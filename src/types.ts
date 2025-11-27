@@ -34,3 +34,12 @@ export interface Commit {
     date: string;
     parents: string[];
 }
+
+export interface BlameLine {
+    line_number: number;
+    commit_hash: string;
+    author: string;
+    author_email: string;
+    date: string;
+    content: string;
+}

@@ -77,6 +77,16 @@ pub struct DiffLine {
     pub new_lineno: Option<u32>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BlameLine {
+    pub line_number: u32,
+    pub commit_hash: String,
+    pub author: String,
+    pub author_email: String,
+    pub date: String,
+    pub content: String,
+}
+
 pub struct GitRepository {
     repo: Repository,
 }
@@ -572,5 +582,47 @@ impl GitRepository {
             .map_err(|_| git2::Error::from_str("Failed to unwrap hunks reference"))?
             .into_inner();
         Ok(result)
+    }
+
+    pub fn blame_file(&self, file_path: &str) -> Result<Vec<BlameLine>> {
+        use std::fs;
+        use std::io::{BufRead, BufReader};
+
+        // Get blame for the file
+        let blame = self.repo.blame_file(Path::new(file_path), None)
+            .context(format!("Failed to get blame for file: {}", file_path))?;
+
+        // Read file content
+        let repo_path = self.repo.path().parent().unwrap_or(self.repo.path());
+        let full_path = repo_path.join(file_path);
+        let file = fs::File::open(&full_path)
+            .context(format!("Failed to open file: {:?}", full_path))?;
+
+        let reader = BufReader::new(file);
+        let mut results = Vec::new();
+
+        for (line_number, line_result) in reader.lines().enumerate() {
+            let line_content = line_result?;
+            let line_num = (line_number + 1) as u32;
+
+            // Get blame hunk for this line
+            if let Some(hunk) = blame.get_line(line_num as usize) {
+                let commit = self.repo.find_commit(hunk.final_commit_id())?;
+                let author = commit.author();
+
+                results.push(BlameLine {
+                    line_number: line_num,
+                    commit_hash: hunk.final_commit_id().to_string(),
+                    author: author.name().unwrap_or("Unknown").to_string(),
+                    author_email: author.email().unwrap_or("").to_string(),
+                    date: DateTime::<Utc>::from_timestamp(commit.time().seconds(), 0)
+                        .unwrap_or_default()
+                        .to_rfc3339(),
+                    content: line_content,
+                });
+            }
+        }
+
+        Ok(results)
     }
 }

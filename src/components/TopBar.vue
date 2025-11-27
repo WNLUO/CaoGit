@@ -3,6 +3,7 @@ import { ref, computed } from 'vue';
 import { repoStore } from '../stores/repoStore';
 import { GitApi } from '../services/gitApi';
 import PublishModal from './PublishModal.vue';
+import ThemeToggle from './ThemeToggle.vue';
 
 const emit = defineEmits<{
   (e: 'open-global-settings'): void;
@@ -167,6 +168,11 @@ async function createNewBranch() {
     </div>
 
     <div class="actions">
+      <!-- Theme Toggle -->
+      <ThemeToggle />
+
+      <div class="separator"></div>
+
       <button
         class="action-btn"
         title="拉取最新代码"
@@ -334,6 +340,14 @@ async function createNewBranch() {
 .actions {
   display: flex;
   gap: var(--spacing-sm);
+  align-items: center;
+}
+
+.separator {
+  width: 1px;
+  height: 24px;
+  background-color: var(--border-color);
+  margin: 0 4px;
 }
 
 .action-btn {
