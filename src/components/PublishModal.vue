@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch, computed, onMounted } from 'vue';
+import { ref, watch, computed } from 'vue';
 import { GitApi } from '../services/gitApi';
 import { PlatformApi, type CreateRepoOptions } from '../services/platformApi';
 import { settingsStore } from '../stores/settingsStore';
@@ -91,6 +91,7 @@ const platforms = [
   {
     id: 'github',
     name: 'GitHub',
+    icon: '🐙',
     createUrl: 'https://github.com/new',
     urlPattern: 'https://github.com/username/repository.git',
     sshPattern: 'git@github.com:username/repository.git'
@@ -98,6 +99,7 @@ const platforms = [
   {
     id: 'gitlab',
     name: 'GitLab',
+    icon: '🦊',
     createUrl: 'https://gitlab.com/projects/new',
     urlPattern: 'https://gitlab.com/username/repository.git',
     sshPattern: 'git@gitlab.com:username/repository.git'
@@ -105,6 +107,7 @@ const platforms = [
   {
     id: 'gitee',
     name: 'Gitee',
+    icon: '🌟',
     createUrl: 'https://gitee.com/projects/new',
     urlPattern: 'https://gitee.com/username/repository.git',
     sshPattern: 'git@gitee.com:username/repository.git'

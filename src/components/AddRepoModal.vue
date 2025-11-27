@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref } from 'vue';
 import { GitApi } from '../services/gitApi';
 import { open } from '@tauri-apps/plugin-dialog';
 import { debugStore } from '../stores/debugStore';
 import InitRepoModal from './InitRepoModal.vue';
 
-const props = defineProps<{
+defineProps<{
   isOpen: boolean;
 }>();
 
@@ -28,7 +28,6 @@ const cloneTargetPath = ref('');
 type ProxyMode = 'none' | 'global' | 'custom';
 const proxyMode = ref<ProxyMode>('global');
 
-const customProxyEnabled = ref(false);
 const customProxyType = ref<'http' | 'https' | 'socks5'>('http');
 const customProxyHost = ref('127.0.0.1');
 const customProxyPort = ref('7890');

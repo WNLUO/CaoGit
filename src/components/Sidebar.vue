@@ -49,8 +49,8 @@ function handleRepoAdded(path: string) {
     name: repoName,
     path: path,
     status: 'online',
-    lastSync: new Date().toISOString(),
-    branch: 'main'
+    protocol: 'https',
+    authType: 'none'
   };
 
   // Add to store

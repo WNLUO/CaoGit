@@ -35,7 +35,7 @@ function showAddRepoModal() {
   isAddRepoOpen.value = true;
 }
 
-function handleRepoAdded(path: string) {
+function handleRepoAdded(_path: string) {
   // Repo was added successfully
   isAddRepoOpen.value = false;
   // TODO: Refresh repo list or select the new repo

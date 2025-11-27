@@ -3,7 +3,6 @@ import { ref, computed } from 'vue';
 import { repoStore } from '../stores/repoStore';
 import VirtualScroller from './VirtualScroller.vue';
 import CommitFilter from './CommitFilter.vue';
-import type { Commit } from '../types';
 import type { FilterOptions } from './CommitFilter.vue';
 
 const isLoadingMore = ref(false);

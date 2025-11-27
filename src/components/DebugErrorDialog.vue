@@ -2,7 +2,7 @@
 import { computed } from 'vue';
 import { debugStore, type ErrorLog } from '../stores/debugStore';
 
-const isOpen = computed(() => debugStore.showErrorDialog.value);
+const isOpen = computed(() => debugStore.showErrorDialog);
 const currentError = computed(() => debugStore.currentError);
 
 function handleClose() {

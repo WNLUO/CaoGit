@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
+import SearchBar from './SearchBar.vue';
 
 export interface FilterOptions {
   searchText: string;
@@ -13,7 +14,7 @@ interface Props {
   branches?: string[];
 }
 
-const props = withDefaults(defineProps<Props>(), {
+withDefaults(defineProps<Props>(), {
   branches: () => []
 });
 
@@ -131,10 +132,6 @@ function handleSearch(value: string) {
     </div>
   </div>
 </template>
-
-<script setup lang="ts">
-import SearchBar from './SearchBar.vue';
-</script>
 
 <style scoped>
 .commit-filter {

@@ -1,4 +1,4 @@
-import { reactive, ref } from 'vue';
+import { reactive } from 'vue';
 import type { Repository, FileChange, Commit } from '../types';
 import { GitApi } from '../services/gitApi';
 import { cacheService } from '../services/cacheService';
