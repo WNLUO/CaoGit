@@ -14,9 +14,22 @@ export interface NetworkTestSettings {
   testInterval: number;
 }
 
+export interface PlatformAccount {
+  enabled: boolean;
+  token: string;
+  username?: string;
+}
+
+export interface GitPlatformsSettings {
+  github: PlatformAccount;
+  gitlab: PlatformAccount;
+  gitee: PlatformAccount;
+}
+
 export interface GlobalSettings {
   proxy: ProxySettings;
   networkTest: NetworkTestSettings;
+  gitPlatforms: GitPlatformsSettings;
 }
 
 const DEFAULT_SETTINGS: GlobalSettings = {
@@ -31,6 +44,23 @@ const DEFAULT_SETTINGS: GlobalSettings = {
   networkTest: {
     testUrl: 'https://github.com',
     testInterval: 60
+  },
+  gitPlatforms: {
+    github: {
+      enabled: false,
+      token: '',
+      username: ''
+    },
+    gitlab: {
+      enabled: false,
+      token: '',
+      username: ''
+    },
+    gitee: {
+      enabled: false,
+      token: '',
+      username: ''
+    }
   }
 };
 
@@ -66,5 +96,15 @@ export const settingsStore = reactive({
   updateNetworkTest(networkTest: Partial<NetworkTestSettings>) {
     this.settings.networkTest = { ...this.settings.networkTest, ...networkTest };
     this.saveSettings({ networkTest: this.settings.networkTest });
+  },
+
+  updateGitPlatforms(gitPlatforms: Partial<GitPlatformsSettings>) {
+    this.settings.gitPlatforms = { ...this.settings.gitPlatforms, ...gitPlatforms };
+    this.saveSettings({ gitPlatforms: this.settings.gitPlatforms });
+  },
+
+  updatePlatformAccount(platform: 'github' | 'gitlab' | 'gitee', account: Partial<PlatformAccount>) {
+    this.settings.gitPlatforms[platform] = { ...this.settings.gitPlatforms[platform], ...account };
+    this.saveSettings({ gitPlatforms: this.settings.gitPlatforms });
   }
 });

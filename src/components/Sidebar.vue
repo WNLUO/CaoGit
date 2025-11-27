@@ -5,9 +5,14 @@ import { settingsStore } from '../stores/settingsStore';
 import type { Repository } from '../types';
 import AddRepoModal from './AddRepoModal.vue';
 import NetworkStatus from './NetworkStatus.vue';
+import ContextMenu from './ContextMenu.vue';
 
 const activeRepoId = ref(1);
 const showAddRepoModal = ref(false);
+const contextMenuVisible = ref(false);
+const contextMenuX = ref(0);
+const contextMenuY = ref(0);
+const contextMenuRepo = ref<Repository | null>(null);
 
 // Load from global settings
 const proxyEnabled = computed(() => settingsStore.settings.proxy.enabled);
@@ -67,6 +72,38 @@ function getStatusColor(status: Repository['status']) {
     default: return '#9ca3af';
   }
 }
+
+function handleContextMenu(event: MouseEvent, repo: Repository) {
+  event.preventDefault();
+
+  contextMenuRepo.value = repo;
+  contextMenuX.value = event.clientX;
+  contextMenuY.value = event.clientY;
+  contextMenuVisible.value = true;
+}
+
+function removeRepository() {
+  if (!contextMenuRepo.value) return;
+
+  if (confirm(`确定要从列表中移除仓库 "${contextMenuRepo.value.name}" 吗？\n\n注意：这只会从列表中移除，不会删除实际文件。`)) {
+    repoStore.removeRepository(contextMenuRepo.value.id);
+
+    // 如果删除的是当前选中的仓库，清空选择
+    if (activeRepoId.value === contextMenuRepo.value.id) {
+      activeRepoId.value = 0;
+      repoStore.activeRepo = null;
+    }
+  }
+}
+
+const contextMenuItems = computed(() => [
+  {
+    label: '从列表中移除',
+    icon: '🗑️',
+    action: removeRepository,
+    danger: true
+  }
+]);
 </script>
 
 <template>
@@ -89,6 +126,7 @@ function getStatusColor(status: Repository['status']) {
           :key="repo.id"
           :class="{ active: activeRepoId === repo.id }"
           @click="selectRepo(repo)"
+          @contextmenu="handleContextMenu($event, repo)"
         >
           <div class="repo-info">
             <span class="repo-name">{{ repo.name }}</span>
@@ -125,6 +163,15 @@ function getStatusColor(status: Repository['status']) {
       :is-open="showAddRepoModal"
       @close="showAddRepoModal = false"
       @repo-added="handleRepoAdded"
+    />
+
+    <!-- Context Menu -->
+    <ContextMenu
+      v-if="contextMenuVisible"
+      :items="contextMenuItems"
+      :x="contextMenuX"
+      :y="contextMenuY"
+      @close="contextMenuVisible = false"
     />
   </aside>
 </template>

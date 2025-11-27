@@ -3,6 +3,7 @@ import { ref, watch } from 'vue';
 import type { Repository } from '../types';
 import { settingsStore } from '../stores/settingsStore';
 import { debugStore } from '../stores/debugStore';
+import { PlatformApi } from '../services/platformApi';
 
 const props = defineProps<{
   isOpen: boolean;
@@ -25,6 +26,19 @@ const proxyPassword = ref('');
 // Network test settings
 const testUrl = ref('https://github.com');
 const testInterval = ref(60); // seconds
+
+// Git platform accounts
+const githubEnabled = ref(false);
+const githubToken = ref('');
+const githubUsername = ref('');
+const gitlabEnabled = ref(false);
+const gitlabToken = ref('');
+const gitlabUsername = ref('');
+const giteeEnabled = ref(false);
+const giteeToken = ref('');
+const giteeUsername = ref('');
+
+const verifyingToken = ref<'github' | 'gitlab' | 'gitee' | null>(null);
 
 // Debug mode setting
 const debugModeEnabled = ref(false);
@@ -56,6 +70,18 @@ watch(() => props.isOpen, (newVal) => {
       proxyPassword.value = globalSettings.proxy.password || '';
       testUrl.value = globalSettings.networkTest.testUrl;
       testInterval.value = globalSettings.networkTest.testInterval;
+
+      // Load platform accounts
+      githubEnabled.value = globalSettings.gitPlatforms.github.enabled;
+      githubToken.value = globalSettings.gitPlatforms.github.token;
+      githubUsername.value = globalSettings.gitPlatforms.github.username || '';
+      gitlabEnabled.value = globalSettings.gitPlatforms.gitlab.enabled;
+      gitlabToken.value = globalSettings.gitPlatforms.gitlab.token;
+      gitlabUsername.value = globalSettings.gitPlatforms.gitlab.username || '';
+      giteeEnabled.value = globalSettings.gitPlatforms.gitee.enabled;
+      giteeToken.value = globalSettings.gitPlatforms.gitee.token;
+      giteeUsername.value = globalSettings.gitPlatforms.gitee.username || '';
+
       debugModeEnabled.value = debugStore.enabled;
     } else if (props.mode === 'repo' && props.repo) {
       // Load repo settings
@@ -80,6 +106,52 @@ watch(() => props.isOpen, (newVal) => {
   }
 });
 
+async function verifyToken(platform: 'github' | 'gitlab' | 'gitee') {
+  verifyingToken.value = platform;
+
+  try {
+    let result;
+    let token;
+
+    switch (platform) {
+      case 'github':
+        token = githubToken.value;
+        result = await PlatformApi.verifyGitHubToken(token);
+        if (result.valid && result.username) {
+          githubUsername.value = result.username;
+          alert(`验证成功！用户名: ${result.username}`);
+        } else {
+          alert('Token 验证失败: ' + (result.error || '未知错误'));
+        }
+        break;
+      case 'gitlab':
+        token = gitlabToken.value;
+        result = await PlatformApi.verifyGitLabToken(token);
+        if (result.valid && result.username) {
+          gitlabUsername.value = result.username;
+          alert(`验证成功！用户名: ${result.username}`);
+        } else {
+          alert('Token 验证失败: ' + (result.error || '未知错误'));
+        }
+        break;
+      case 'gitee':
+        token = giteeToken.value;
+        result = await PlatformApi.verifyGiteeToken(token);
+        if (result.valid && result.username) {
+          giteeUsername.value = result.username;
+          alert(`验证成功！用户名: ${result.username}`);
+        } else {
+          alert('Token 验证失败: ' + (result.error || '未知错误'));
+        }
+        break;
+    }
+  } catch (error: any) {
+    alert('验证失败: ' + error.message);
+  } finally {
+    verifyingToken.value = null;
+  }
+}
+
 function save() {
   if (props.mode === 'global') {
     // Save global settings
@@ -95,6 +167,25 @@ function save() {
     settingsStore.updateNetworkTest({
       testUrl: testUrl.value,
       testInterval: testInterval.value
+    });
+
+    // Save platform accounts
+    settingsStore.updateGitPlatforms({
+      github: {
+        enabled: githubEnabled.value,
+        token: githubToken.value,
+        username: githubUsername.value
+      },
+      gitlab: {
+        enabled: gitlabEnabled.value,
+        token: gitlabToken.value,
+        username: gitlabUsername.value
+      },
+      gitee: {
+        enabled: giteeEnabled.value,
+        token: giteeToken.value,
+        username: giteeUsername.value
+      }
     });
 
     // Save debug mode
@@ -173,6 +264,131 @@ function save() {
           <div class="input-group">
             <label>测速间隔 (秒)</label>
             <input v-model.number="testInterval" type="number" min="10" max="600" placeholder="60">
+          </div>
+
+          <div class="divider"></div>
+
+          <h4>Git 平台账户</h4>
+          <p class="hint">配置后可以直接在应用内创建远程仓库</p>
+
+          <!-- GitHub -->
+          <div class="platform-section">
+            <label class="checkbox-label">
+              <input type="checkbox" v-model="githubEnabled">
+              <span class="platform-name">🐙 GitHub</span>
+            </label>
+
+            <div v-if="githubEnabled" class="platform-config">
+              <div class="input-group">
+                <label>Personal Access Token</label>
+                <div class="token-input-wrapper">
+                  <input
+                    v-model="githubToken"
+                    type="password"
+                    placeholder="ghp_..."
+                  />
+                  <button
+                    class="verify-btn"
+                    @click="verifyToken('github')"
+                    :disabled="!githubToken || verifyingToken === 'github'"
+                  >
+                    {{ verifyingToken === 'github' ? '验证中...' : '验证' }}
+                  </button>
+                </div>
+                <a
+                  href="https://github.com/settings/tokens/new?scopes=repo&description=Git%20Manager"
+                  target="_blank"
+                  class="help-link"
+                >
+                  如何获取 Token？
+                </a>
+              </div>
+
+              <div v-if="githubUsername" class="username-display">
+                <span class="label">用户名:</span>
+                <span class="username">{{ githubUsername }}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- GitLab -->
+          <div class="platform-section">
+            <label class="checkbox-label">
+              <input type="checkbox" v-model="gitlabEnabled">
+              <span class="platform-name">🦊 GitLab</span>
+            </label>
+
+            <div v-if="gitlabEnabled" class="platform-config">
+              <div class="input-group">
+                <label>Personal Access Token</label>
+                <div class="token-input-wrapper">
+                  <input
+                    v-model="gitlabToken"
+                    type="password"
+                    placeholder="glpat-..."
+                  />
+                  <button
+                    class="verify-btn"
+                    @click="verifyToken('gitlab')"
+                    :disabled="!gitlabToken || verifyingToken === 'gitlab'"
+                  >
+                    {{ verifyingToken === 'gitlab' ? '验证中...' : '验证' }}
+                  </button>
+                </div>
+                <a
+                  href="https://gitlab.com/-/profile/personal_access_tokens"
+                  target="_blank"
+                  class="help-link"
+                >
+                  如何获取 Token？
+                </a>
+              </div>
+
+              <div v-if="gitlabUsername" class="username-display">
+                <span class="label">用户名:</span>
+                <span class="username">{{ gitlabUsername }}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Gitee -->
+          <div class="platform-section">
+            <label class="checkbox-label">
+              <input type="checkbox" v-model="giteeEnabled">
+              <span class="platform-name">🔴 Gitee</span>
+            </label>
+
+            <div v-if="giteeEnabled" class="platform-config">
+              <div class="input-group">
+                <label>私人令牌 (Private Token)</label>
+                <div class="token-input-wrapper">
+                  <input
+                    v-model="giteeToken"
+                    type="password"
+                    placeholder="..."
+                  />
+                  <button
+                    class="verify-btn"
+                    @click="verifyToken('gitee')"
+                    :disabled="!giteeToken || verifyingToken === 'gitee'"
+                  >
+                    {{ verifyingToken === 'gitee' ? '验证中...' : '验证' }}
+                  </button>
+                </div>
+                <a
+                  href="https://gitee.com/profile/personal_access_tokens"
+                  target="_blank"
+                  class="help-link"
+                >
+                  如何获取令牌？
+                </a>
+              </div>
+
+              <div v-if="giteeUsername" class="username-display">
+                <span class="label">用户名:</span>
+                <span class="username">{{ giteeUsername }}</span>
+              </div>
+            </div>
           </div>
 
           <div class="divider"></div>
@@ -427,5 +643,82 @@ select:focus {
   height: 1px;
   background-color: var(--border-color);
   margin: var(--spacing-lg) 0;
+}
+
+.platform-section {
+  margin-bottom: var(--spacing-md);
+  padding: var(--spacing-md);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background-color: var(--bg-secondary);
+}
+
+.platform-name {
+  font-weight: 600;
+  font-size: var(--font-size-base);
+}
+
+.platform-config {
+  margin-top: var(--spacing-md);
+  padding-top: var(--spacing-md);
+  border-top: 1px solid var(--border-color);
+}
+
+.token-input-wrapper {
+  display: flex;
+  gap: var(--spacing-sm);
+}
+
+.token-input-wrapper input {
+  flex: 1;
+}
+
+.verify-btn {
+  padding: var(--spacing-sm) var(--spacing-md);
+  border-radius: var(--radius-md);
+  background-color: var(--accent-color);
+  color: white;
+  font-size: var(--font-size-sm);
+  white-space: nowrap;
+}
+
+.verify-btn:hover:not(:disabled) {
+  background-color: var(--accent-hover);
+}
+
+.verify-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.help-link {
+  font-size: var(--font-size-xs);
+  color: var(--accent-color);
+  text-decoration: none;
+  margin-top: 4px;
+  display: inline-block;
+}
+
+.help-link:hover {
+  text-decoration: underline;
+}
+
+.username-display {
+  margin-top: var(--spacing-sm);
+  padding: var(--spacing-sm);
+  background-color: var(--bg-tertiary);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+  display: flex;
+  gap: var(--spacing-xs);
+}
+
+.username-display .label {
+  color: var(--text-tertiary);
+}
+
+.username-display .username {
+  color: var(--text-primary);
+  font-weight: 600;
 }
 </style>

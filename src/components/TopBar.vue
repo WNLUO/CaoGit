@@ -2,12 +2,14 @@
 import { ref, computed } from 'vue';
 import { repoStore } from '../stores/repoStore';
 import { GitApi } from '../services/gitApi';
+import PublishModal from './PublishModal.vue';
 
 const currentBranch = computed(() => repoStore.currentBranch);
 const isPushing = ref(false);
 const isPulling = ref(false);
 const isFetching = ref(false);
 const showBranchMenu = ref(false);
+const showPublishModal = ref(false);
 
 async function handlePull() {
   if (!repoStore.activeRepo) {
@@ -84,25 +86,20 @@ async function handleFetch() {
   }
 }
 
-async function addRemote() {
+function openPublishModal() {
   if (!repoStore.activeRepo) {
     alert('请先打开一个仓库');
     return;
   }
 
-  const url = prompt('输入远程仓库 URL (例如: https://github.com/username/repo.git):');
-  if (!url) return;
+  showPublishModal.value = true;
+}
 
-  try {
-    const response = await GitApi.addRemote(repoStore.activeRepo.path, 'origin', url);
-
-    if (response.success) {
-      alert('添加远程仓库成功!');
-    } else {
-      alert('添加远程仓库失败: ' + response.error);
-    }
-  } catch (error: any) {
-    alert('添加远程仓库失败: ' + error.message);
+function handleRemoteAdded() {
+  // 远程仓库添加成功后的回调
+  // 可以在这里刷新仓库状态
+  if (repoStore.activeRepo) {
+    repoStore.loadRepoData(repoStore.activeRepo);
   }
 }
 
@@ -201,15 +198,24 @@ async function createNewBranch() {
       </button>
       <button
         class="action-btn"
-        title="添加远程仓库"
-        @click="addRemote"
+        title="发布/管理远程仓库"
+        @click="openPublishModal"
       >
         <span class="icon">
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="16"></line><line x1="8" y1="12" x2="16" y2="12"></line></svg>
         </span>
-        <span>远程</span>
+        <span>发布</span>
       </button>
     </div>
+
+    <!-- Publish/Remote Modal -->
+    <PublishModal
+      v-if="repoStore.activeRepo"
+      :is-open="showPublishModal"
+      :repo-path="repoStore.activeRepo.path"
+      @close="showPublishModal = false"
+      @remote-added="handleRemoteAdded"
+    />
   </header>
 </template>
 
