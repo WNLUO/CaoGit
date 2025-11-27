@@ -181,9 +181,9 @@ async function doCommit() {
   try {
     await repoStore.commit(commitMessage.value);
     commitMessage.value = '';
-    alert('提交成功!');
+    toastStore.success('提交成功!');
   } catch (error: any) {
-    alert('提交失败: ' + error.message);
+    toastStore.error('提交失败: ' + error.message);
   } finally {
     isCommitting.value = false;
   }
