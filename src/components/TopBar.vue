@@ -68,10 +68,10 @@ async function handlePull() {
     if (response.success) {
       progressMessage.value = 'Pull 成功!';
       // 延迟一下让用户看到成功消息
-      await new Promise(resolve => setTimeout(resolve, 500));
+      await new Promise(resolve => setTimeout(resolve, 800));
       await repoStore.loadRepoData(repoStore.activeRepo);
-      alert('Pull 成功!');
     } else {
+      // 只在失败时显示 alert
       alert('Pull 失败: ' + response.error);
     }
   } catch (error: any) {
@@ -103,9 +103,9 @@ async function handlePush() {
     if (response.success) {
       progressMessage.value = 'Push 成功!';
       // 延迟一下让用户看到成功消息
-      await new Promise(resolve => setTimeout(resolve, 500));
-      alert('Push 成功!');
+      await new Promise(resolve => setTimeout(resolve, 800));
     } else {
+      // 只在失败时显示 alert
       alert('Push 失败: ' + response.error);
     }
   } catch (error: any) {
@@ -133,9 +133,9 @@ async function handleFetch() {
     if (response.success) {
       progressMessage.value = 'Fetch 成功!';
       // 延迟一下让用户看到成功消息
-      await new Promise(resolve => setTimeout(resolve, 500));
-      alert('Fetch 成功!');
+      await new Promise(resolve => setTimeout(resolve, 800));
     } else {
+      // 只在失败时显示 alert
       alert('Fetch 失败: ' + response.error);
     }
   } catch (error: any) {

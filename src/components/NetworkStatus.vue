@@ -242,40 +242,21 @@ onUnmounted(() => {
   justify-content: center;
   padding: var(--spacing-xs) var(--spacing-sm);
   background-color: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
   border-radius: var(--radius-sm);
   font-size: var(--font-size-xs);
   color: var(--text-secondary);
   width: 100%;
   min-width: 0;
   overflow: hidden;
-  transition: all var(--transition-fast);
 }
 
 .network-status.clickable {
   cursor: pointer;
 }
 
-.network-status.clickable:hover {
-  background-color: var(--bg-hover);
-  transform: translateY(-1px);
-}
-
-.network-status.clickable:active {
-  transform: translateY(0);
-}
-
 .network-status.testing {
   opacity: 0.8;
-}
-
-/* 速率模式样式 */
-.network-status.speed {
-  border-left: 3px solid #3b82f6;
-}
-
-/* 流量模式样式 */
-.network-status.traffic {
-  border-left: 3px solid #22c55e;
 }
 
 .stats {
