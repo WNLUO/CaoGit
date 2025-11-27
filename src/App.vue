@@ -122,7 +122,7 @@ function handleSidebarResize(delta: number) {
     <!-- Toast Notifications -->
     <Toast
       :messages="toastStore.messages"
-      @remove="toastStore.remove"
+      @remove="(id) => toastStore.remove(id)"
     />
   </div>
 </template>
