@@ -236,6 +236,18 @@ export const repoStore = reactive({
         }
     },
 
+    updateRepository(id: number, updates: Partial<Repository>) {
+        const index = this.repositories.findIndex(r => r.id === id);
+        if (index !== -1) {
+            this.repositories[index] = { ...this.repositories[index], ...updates };
+            saveRepositories(this.repositories);
+            // 如果更新的是当前活跃仓库，也更新activeRepo
+            if (this.activeRepo?.id === id) {
+                this.activeRepo = this.repositories[index];
+            }
+        }
+    },
+
     // Clear cache for active repo
     clearCache() {
         if (this.activeRepo) {

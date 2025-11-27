@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, onUnmounted, watch } from 'vue';
 import type { Repository } from '../types';
 import ChangesView from './ChangesView.vue';
 import HistoryView from './HistoryView.vue';
 import DiffView from './DiffView.vue';
 import Resizer from './Resizer.vue';
 import { settingsStore } from '../stores/settingsStore';
+import { repoStore } from '../stores/repoStore';
 
 defineProps<{
   repo: Repository;
@@ -13,12 +14,48 @@ defineProps<{
 
 const leftPanelWidth = ref(320);
 const rightPanelTopHeight = ref(60); // 百分比
+let refreshInterval: number | null = null;
 
 onMounted(() => {
   // 从设置中恢复面板宽度和高度
   leftPanelWidth.value = settingsStore.settings.layout.leftPanelWidth ?? 320;
   rightPanelTopHeight.value = settingsStore.settings.layout.rightPanelTopHeight ?? 60;
+
+  // 启动文件变更自动监控
+  startAutoRefresh();
 });
+
+onUnmounted(() => {
+  stopAutoRefresh();
+});
+
+// 监听活跃仓库变化，重启自动刷新
+watch(() => repoStore.activeRepo, (newRepo) => {
+  stopAutoRefresh();
+  if (newRepo) {
+    startAutoRefresh();
+  }
+});
+
+function startAutoRefresh() {
+  if (repoStore.activeRepo) {
+    // 每3秒自动刷新一次文件状态
+    refreshInterval = window.setInterval(() => {
+      if (repoStore.activeRepo) {
+        repoStore.refreshStatus().catch(error => {
+          console.error('Auto-refresh failed:', error);
+        });
+      }
+    }, 3000);
+  }
+}
+
+function stopAutoRefresh() {
+  if (refreshInterval !== null) {
+    clearInterval(refreshInterval);
+    refreshInterval = null;
+  }
+}
 
 function handleLeftPanelResize(delta: number) {
   // 最小宽度设置为网络状态框的宽度 (240px)

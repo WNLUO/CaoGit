@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, onMounted, onBeforeUnmount } from 'vue';
 
 interface MenuItem {
   label: string;
@@ -25,6 +25,29 @@ function handleItemClick(item: MenuItem) {
   item.action();
   emit('close');
 }
+
+function closeMenu() {
+  emit('close');
+}
+
+function handleKeydown(e: KeyboardEvent) {
+  if (e.key === 'Escape') {
+    closeMenu();
+  }
+}
+
+onMounted(() => {
+  // 延迟执行，防止打开菜单的点击事件立即关闭它
+  setTimeout(() => {
+    document.addEventListener('click', closeMenu);
+    document.addEventListener('keydown', handleKeydown);
+  }, 0);
+});
+
+onBeforeUnmount(() => {
+  document.removeEventListener('click', closeMenu);
+  document.removeEventListener('keydown', handleKeydown);
+});
 </script>
 
 <template>
@@ -32,6 +55,7 @@ function handleItemClick(item: MenuItem) {
     ref="menuRef"
     class="context-menu"
     :style="{ left: `${x}px`, top: `${y}px` }"
+    @click.stop
   >
     <ul>
       <li

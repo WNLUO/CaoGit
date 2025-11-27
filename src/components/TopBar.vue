@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, watch, onMounted } from 'vue';
 import { repoStore } from '../stores/repoStore';
 import { GitApi } from '../services/gitApi';
 import PublishModal from './PublishModal.vue';
@@ -15,6 +15,31 @@ const isPulling = ref(false);
 const isFetching = ref(false);
 const showBranchMenu = ref(false);
 const showPublishModal = ref(false);
+const hasRemote = ref(false);
+
+// 检查是否有远程仓库
+async function checkRemote() {
+  if (!repoStore.activeRepo) {
+    hasRemote.value = false;
+    return;
+  }
+
+  try {
+    const response = await GitApi.getRemotes(repoStore.activeRepo.path);
+    hasRemote.value = !!(response.success && response.data && response.data.length > 0);
+  } catch (error) {
+    hasRemote.value = false;
+  }
+}
+
+// 监听活跃仓库变化
+watch(() => repoStore.activeRepo, () => {
+  checkRemote();
+}, { immediate: true });
+
+onMounted(() => {
+  checkRemote();
+});
 
 async function handlePull() {
   if (!repoStore.activeRepo) {
@@ -105,6 +130,7 @@ function handleRemoteAdded() {
   // 可以在这里刷新仓库状态
   if (repoStore.activeRepo) {
     repoStore.loadRepoData(repoStore.activeRepo);
+    checkRemote(); // 重新检查远程仓库状态
   }
 }
 
@@ -210,6 +236,7 @@ async function createNewBranch() {
         <span>{{ isFetching ? '获取中...' : '获取' }}</span>
       </button>
       <button
+        v-if="!hasRemote"
         class="action-btn"
         title="发布/管理远程仓库"
         @click="openPublishModal"

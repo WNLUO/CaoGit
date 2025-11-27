@@ -99,7 +99,6 @@ function removeRepository() {
 const contextMenuItems = computed(() => [
   {
     label: '从列表中移除',
-    icon: '🗑️',
     action: removeRepository,
     danger: true
   }

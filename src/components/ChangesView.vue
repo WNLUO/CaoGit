@@ -26,10 +26,18 @@ const unstagedFiles = computed(() => repoStore.fileChanges.filter(f => !f.staged
 
 async function toggleStage(file: FileChange) {
   try {
+    // 如果当前文件被选中，操作后清除选择
+    const shouldClearSelection = repoStore.selectedFile?.path === file.path;
+
     if (file.staged) {
       await repoStore.unstageFile(file.path);
     } else {
       await repoStore.stageFile(file.path);
+    }
+
+    // 清除diff视图
+    if (shouldClearSelection) {
+      repoStore.selectedFile = null;
     }
   } catch (error: any) {
     alert('操作失败: ' + error.message);
@@ -62,30 +70,74 @@ async function unstageAll() {
   }
 }
 
-async function discardFile(file: FileChange) {
-  if (!confirm(`确定要丢弃 ${file.path} 的所有更改吗？此操作不可撤销。`)) {
+async function discardFile(file: FileChange, event?: Event) {
+  // 阻止事件冒泡，避免触发其他操作
+  if (event) {
+    event.preventDefault();
+    event.stopPropagation();
+  }
+
+  // 确保确认对话框在执行前显示
+  const confirmed = window.confirm(
+    `确定要丢弃 ${file.path} 的所有更改吗？\n\n此操作不可撤销！`
+  );
+
+  // 如果用户点击取消，立即返回
+  if (!confirmed) {
+    console.log('用户取消了丢弃操作');
     return;
   }
 
+  console.log('用户确认丢弃文件:', file.path);
+
+  // 如果当前文件被选中，操作后清除选择
+  const shouldClearSelection = repoStore.selectedFile?.path === file.path;
+
   try {
     await repoStore.discardFile(file.path);
+    console.log('文件丢弃成功:', file.path);
+
+    // 清除diff视图
+    if (shouldClearSelection) {
+      repoStore.selectedFile = null;
+    }
   } catch (error: any) {
+    console.error('丢弃文件失败:', error);
     alert('丢弃更改失败: ' + error.message);
   }
 }
 
-async function discardAllUnstaged() {
+async function discardAllUnstaged(event?: Event) {
+  // 阻止事件冒泡
+  if (event) {
+    event.preventDefault();
+    event.stopPropagation();
+  }
+
   if (unstagedFiles.value.length === 0) return;
 
-  if (!confirm(`确定要丢弃所有工作区的更改吗？这将丢弃 ${unstagedFiles.value.length} 个文件的更改，此操作不可撤销。`)) {
+  const fileCount = unstagedFiles.value.length;
+  const confirmed = window.confirm(
+    `确定要丢弃所有工作区的更改吗？\n\n这将丢弃 ${fileCount} 个文件的更改。\n此操作不可撤销！`
+  );
+
+  if (!confirmed) {
+    console.log('用户取消了批量丢弃操作');
     return;
   }
+
+  console.log(`用户确认丢弃 ${fileCount} 个文件`);
 
   try {
     await Promise.all(
       unstagedFiles.value.map(file => repoStore.discardFile(file.path))
     );
+    console.log('批量丢弃成功');
+
+    // 清除diff视图
+    repoStore.selectedFile = null;
   } catch (error: any) {
+    console.error('批量丢弃失败:', error);
     alert('丢弃更改失败: ' + error.message);
   }
 }
@@ -368,7 +420,7 @@ function getDiffStatusColor(status?: FileChange['diffStatus']) {
                     <line x1="1" y1="1" x2="23" y2="23"></line>
                   </svg>
                 </button>
-                <button class="group-action discard-all" @click="discardAllUnstaged" title="丢弃所有更改">
+                <button class="group-action discard-all" @click="discardAllUnstaged($event)" title="丢弃所有更改">
                   <span class="action-icon">×</span>
                 </button>
                 <button class="group-action" @click="stageAll" title="暂存所有文件">
@@ -402,7 +454,7 @@ function getDiffStatusColor(status?: FileChange['diffStatus']) {
                   <button
                     v-if="showFileActions"
                     class="file-action discard"
-                    @click.stop="discardFile(file)"
+                    @click.stop="discardFile(file, $event)"
                     title="丢弃更改"
                   >
                     <span class="action-icon">×</span>
