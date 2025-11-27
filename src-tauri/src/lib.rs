@@ -25,6 +25,7 @@ pub fn run() {
             push_remote,
             get_remotes,
             add_remote,
+            remove_remote,
             merge_branch,
             stash_save,
             stash_list,

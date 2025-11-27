@@ -103,6 +103,10 @@ export class GitApi {
         return await safeInvoke('add_remote', { repoPath, name, url });
     }
 
+    static async removeRemote(repoPath: string, name: string): Promise<ApiResponse<string>> {
+        return await safeInvoke('remove_remote', { repoPath, name });
+    }
+
     // Merge operations
     static async mergeBranch(repoPath: string, branchName: string): Promise<ApiResponse<string>> {
         return await safeInvoke('merge_branch', { repoPath, branchName });

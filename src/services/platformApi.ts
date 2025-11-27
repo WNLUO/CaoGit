@@ -36,17 +36,43 @@ export class PlatformApi {
 
       if (!response.ok) {
         const error = await response.json();
+        let errorMessage = error.message || `HTTP error ${response.status}`;
+
+        // 提供更友好的错误信息
+        if (response.status === 422) {
+          if (error.errors && error.errors.length > 0) {
+            const firstError = error.errors[0];
+
+            // 检查具体的错误信息
+            if (firstError.message) {
+              if (firstError.message.includes('already exists')) {
+                errorMessage = `仓库名称 "${options.name}" 已存在，请使用其他名称`;
+              } else if (firstError.message.includes('is invalid') || firstError.field === 'name') {
+                errorMessage = `仓库名称 "${options.name}" 不符合规范。只能使用英文字母、数字、连字符(-)、下划线(_)和点(.)`;
+              } else {
+                errorMessage = firstError.message;
+              }
+            }
+          } else if (errorMessage.includes('already exists')) {
+            errorMessage = `仓库名称 "${options.name}" 已存在，请使用其他名称`;
+          } else if (errorMessage.includes('invalid')) {
+            errorMessage = `仓库名称 "${options.name}" 不符合规范。只能使用英文字母、数字、连字符(-)、下划线(_)和点(.)`;
+          }
+        } else if (response.status === 401) {
+          errorMessage = 'Token 无效或已过期，请重新配置';
+        }
+
         return {
           success: false,
-          error: error.message || `HTTP error ${response.status}`
+          error: errorMessage
         };
       }
 
       const data = await response.json();
       return {
         success: true,
-        url: data.clone_url,
-        sshUrl: data.ssh_url
+        url: data.clone_url,  // HTTPS URL
+        sshUrl: data.ssh_url   // SSH URL
       };
     } catch (error: any) {
       return {
@@ -75,17 +101,27 @@ export class PlatformApi {
 
       if (!response.ok) {
         const error = await response.json();
+        let errorMessage = error.message || `HTTP error ${response.status}`;
+
+        if (response.status === 400 && error.message) {
+          if (error.message.name && error.message.name.includes('already been taken')) {
+            errorMessage = `仓库名称 "${options.name}" 已存在，请使用其他名称`;
+          }
+        } else if (response.status === 401) {
+          errorMessage = 'Token 无效或已过期，请重新配置';
+        }
+
         return {
           success: false,
-          error: error.message || `HTTP error ${response.status}`
+          error: errorMessage
         };
       }
 
       const data = await response.json();
       return {
         success: true,
-        url: data.http_url_to_repo,
-        sshUrl: data.ssh_url_to_repo
+        url: data.http_url_to_repo,  // HTTPS URL
+        sshUrl: data.ssh_url_to_repo  // SSH URL
       };
     } catch (error: any) {
       return {
@@ -114,17 +150,27 @@ export class PlatformApi {
 
       if (!response.ok) {
         const error = await response.json();
+        let errorMessage = error.message || `HTTP error ${response.status}`;
+
+        if (response.status === 400 && errorMessage) {
+          if (errorMessage.includes('已存在') || errorMessage.includes('already exists')) {
+            errorMessage = `仓库名称 "${options.name}" 已存在，请使用其他名称`;
+          }
+        } else if (response.status === 401) {
+          errorMessage = 'Token 无效或已过期，请重新配置';
+        }
+
         return {
           success: false,
-          error: error.message || `HTTP error ${response.status}`
+          error: errorMessage
         };
       }
 
       const data = await response.json();
       return {
         success: true,
-        url: data.clone_url || data.html_url?.replace('https://gitee.com/', 'https://gitee.com/') + '.git',
-        sshUrl: data.ssh_url
+        url: data.clone_url || data.html_url?.replace('https://gitee.com/', 'https://gitee.com/') + '.git',  // HTTPS URL
+        sshUrl: data.ssh_url  // SSH URL
       };
     } catch (error: any) {
       return {

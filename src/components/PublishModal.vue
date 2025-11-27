@@ -20,6 +20,7 @@ const props = defineProps<Props>();
 const emit = defineEmits<{
   (e: 'close'): void;
   (e: 'remote-added'): void;
+  (e: 'open-settings'): void;
 }>();
 
 const mode = ref<'select' | 'add-existing' | 'publish' | 'create-repo'>('select');
@@ -35,6 +36,56 @@ const repoDescription = ref('');
 const repoPrivate = ref(false);
 const repoAutoInit = ref(false);
 const autoPush = ref(true);
+const useSSH = ref(false);  // 默认使用 HTTPS（Token 认证）
+
+function validateRepoName(name: string): { valid: boolean; error?: string } {
+  if (!name || !name.trim()) {
+    return { valid: false, error: '仓库名称不能为空' };
+  }
+
+  // GitHub/GitLab/Gitee 仓库名称规则：
+  // - 只能包含字母、数字、连字符(-)、下划线(_)和点(.)
+  // - 不能以点或连字符开头或结尾
+  // - 长度限制：1-100 字符
+  const nameRegex = /^[a-zA-Z0-9]([a-zA-Z0-9._-]{0,98}[a-zA-Z0-9])?$/;
+
+  if (!nameRegex.test(name)) {
+    if (/[\u4e00-\u9fa5]/.test(name)) {
+      return {
+        valid: false,
+        error: '仓库名称不能包含中文字符，只能使用英文字母、数字、连字符(-)、下划线(_)和点(.)'
+      };
+    }
+    if (name.startsWith('.') || name.startsWith('-')) {
+      return {
+        valid: false,
+        error: '仓库名称不能以点(.)或连字符(-)开头'
+      };
+    }
+    if (name.endsWith('.') || name.endsWith('-')) {
+      return {
+        valid: false,
+        error: '仓库名称不能以点(.)或连字符(-)结尾'
+      };
+    }
+    return {
+      valid: false,
+      error: '仓库名称只能包含字母、数字、连字符(-)、下划线(_)和点(.)'
+    };
+  }
+
+  if (name.length > 100) {
+    return { valid: false, error: '仓库名称长度不能超过 100 个字符' };
+  }
+
+  return { valid: true };
+}
+
+const repoNameError = computed(() => {
+  if (!repoName.value) return '';
+  const validation = validateRepoName(repoName.value);
+  return validation.valid ? '' : validation.error;
+});
 
 const platforms = [
   {
@@ -124,9 +175,11 @@ function selectPublish() {
     mode.value = 'create-repo';
     selectedPlatform.value = configuredPlatforms.value[0].id as any;
   } else {
-    // 否则显示手动引导流程
-    mode.value = 'publish';
-    selectedPlatform.value = '';
+    // 否则引导用户去配置账户
+    if (confirm('需要先在全局设置中配置 Git 平台账户才能一键创建仓库。\n\n是否现在前往配置？')) {
+      emit('open-settings');
+      emit('close');
+    }
   }
 }
 
@@ -144,6 +197,7 @@ function goBack() {
   repoPrivate.value = false;
   repoAutoInit.value = false;
   autoPush.value = true;
+  useSSH.value = false;
 }
 
 async function handleAddRemote() {
@@ -187,6 +241,13 @@ function selectPlatformTemplate(platformId: string) {
 async function handleCreateAndPublish() {
   if (!repoName.value.trim()) {
     alert('请输入仓库名称');
+    return;
+  }
+
+  // 验证仓库名称
+  const validation = validateRepoName(repoName.value.trim());
+  if (!validation.valid) {
+    alert(validation.error);
     return;
   }
 
@@ -234,14 +295,84 @@ async function handleCreateAndPublish() {
     }
 
     // 创建成功，添加 remote
-    const repoUrl = result.url || result.sshUrl;
+    // 根据用户选择使用 SSH 或 HTTPS URL
+    let repoUrl;
+    if (useSSH.value) {
+      repoUrl = result.sshUrl || result.url;
+    } else {
+      // 使用 HTTPS，需要在 URL 中嵌入 Token 以实现自动认证
+      let httpsUrl = result.url;
+
+      // 如果 result.url 是 SSH 格式，转换为 HTTPS
+      if (httpsUrl?.startsWith('git@')) {
+        switch (selectedPlatform.value) {
+          case 'github':
+            // git@github.com:user/repo.git -> https://github.com/user/repo.git
+            httpsUrl = httpsUrl.replace('git@github.com:', 'https://github.com/');
+            break;
+          case 'gitlab':
+            httpsUrl = httpsUrl.replace('git@gitlab.com:', 'https://gitlab.com/');
+            break;
+          case 'gitee':
+            httpsUrl = httpsUrl.replace('git@gitee.com:', 'https://gitee.com/');
+            break;
+        }
+      }
+
+      // 在 HTTPS URL 中嵌入 Token
+      // 格式: https://<token>@github.com/user/repo.git
+      if (httpsUrl?.startsWith('https://')) {
+        // 获取对应平台的 token
+        switch (selectedPlatform.value) {
+          case 'github':
+            token = settingsStore.settings.gitPlatforms.github.token;
+            // https://github.com/user/repo.git -> https://<token>@github.com/user/repo.git
+            httpsUrl = httpsUrl.replace('https://', `https://${token}@`);
+            break;
+          case 'gitlab':
+            token = settingsStore.settings.gitPlatforms.gitlab.token;
+            // GitLab 使用 oauth2 作为用户名
+            httpsUrl = httpsUrl.replace('https://', `https://oauth2:${token}@`);
+            break;
+          case 'gitee':
+            token = settingsStore.settings.gitPlatforms.gitee.token;
+            httpsUrl = httpsUrl.replace('https://', `https://${token}@`);
+            break;
+        }
+      }
+
+      repoUrl = httpsUrl;
+    }
+
     if (!repoUrl) {
       alert('仓库创建成功，但未获取到 URL');
       isLoading.value = false;
       return;
     }
 
-    const addRemoteResponse = await GitApi.addRemote(props.repoPath, 'origin', repoUrl);
+    // 调试信息（隐藏 Token）
+    console.log('选择的 URL 类型:', useSSH.value ? 'SSH' : 'HTTPS');
+    const safeUrl = repoUrl?.includes('@') && !repoUrl.startsWith('git@')
+      ? repoUrl.replace(/\/\/[^@]+@/, '//***@')  // 隐藏 Token
+      : repoUrl;
+    console.log('实际使用的 URL:', safeUrl);
+    console.log('URL 格式:', repoUrl?.startsWith('git@') ? 'SSH' : 'HTTPS');
+    console.log('包含认证信息:', repoUrl?.includes('@') && !repoUrl?.startsWith('git@') ? '是' : '否');
+
+    // 检查是否已存在 origin 远程
+    const remotesResponse = await GitApi.getRemotes(props.repoPath);
+    const originExists = remotesResponse.success &&
+                        remotesResponse.data?.some(r => r.name === 'origin');
+
+    let addRemoteResponse;
+    if (originExists) {
+      // 如果已存在，先删除再添加（相当于更新）
+      await GitApi.removeRemote(props.repoPath, 'origin');
+      addRemoteResponse = await GitApi.addRemote(props.repoPath, 'origin', repoUrl);
+    } else {
+      // 不存在则直接添加
+      addRemoteResponse = await GitApi.addRemote(props.repoPath, 'origin', repoUrl);
+    }
 
     if (!addRemoteResponse.success) {
       alert(`仓库创建成功，但添加远程失败: ${addRemoteResponse.error}\n\n仓库 URL: ${repoUrl}`);
@@ -251,12 +382,58 @@ async function handleCreateAndPublish() {
 
     // 如果选择自动推送
     if (autoPush.value) {
-      const pushResponse = await GitApi.push(props.repoPath, 'origin', 'main');
+      // 获取当前分支
+      const currentBranchResponse = await GitApi.getCurrentBranch(props.repoPath);
+      let branchToPush = 'main';
+
+      if (currentBranchResponse.success && currentBranchResponse.data) {
+        branchToPush = currentBranchResponse.data;
+        console.log('当前分支:', branchToPush);
+      }
+
+      // 检查是否有提交记录
+      const commitsResponse = await GitApi.getCommits(props.repoPath, 1);
+      if (!commitsResponse.success || !commitsResponse.data || commitsResponse.data.length === 0) {
+        alert(`仓库创建成功！\n\n但本地仓库还没有任何提交记录，无法推送。\n\n请先进行提交：\n1. 在"变更"标签页中暂存文件\n2. 输入提交信息并提交\n3. 然后使用顶部的"推送"按钮推送到远程`);
+        emit('remote-added');
+        emit('close');
+        return;
+      }
+
+      const pushResponse = await GitApi.push(props.repoPath, 'origin', branchToPush);
 
       if (pushResponse.success) {
         alert('仓库创建成功并已推送！');
       } else {
-        alert(`仓库创建成功，但推送失败: ${pushResponse.error}\n\n请手动推送代码。`);
+        // 检查具体错误类型
+        const isAuthError = pushResponse.error?.includes('authentication') ||
+                           pushResponse.error?.includes('Auth') ||
+                           pushResponse.error?.includes('credentials');
+
+        const isEmptyRepoError = pushResponse.error?.includes('does not match any') ||
+                                pushResponse.error?.includes('src refspec');
+
+        let errorMsg = `仓库创建成功，但推送失败:\n${pushResponse.error}\n\n`;
+
+        if (isEmptyRepoError) {
+          errorMsg += '这是因为本地仓库没有提交记录。解决方法：\n\n';
+          errorMsg += '1. 先进行至少一次提交，然后再推送\n';
+          errorMsg += '2. 或者在终端执行以下命令：\n';
+          errorMsg += `   git add .\n`;
+          errorMsg += `   git commit -m "Initial commit"\n`;
+          errorMsg += `   git push -u origin ${branchToPush}`;
+        } else if (isAuthError) {
+          errorMsg += '这通常是因为需要身份验证。解决方法：\n\n';
+          errorMsg += '1. 检查 Token 是否正确配置\n';
+          errorMsg += '2. 或使用 SSH URL（需要配置 SSH 密钥）\n\n';
+          errorMsg += '3. 或者在终端手动推送：\n';
+          errorMsg += `   git push -u origin ${branchToPush}`;
+        } else {
+          errorMsg += '请手动推送代码：\n';
+          errorMsg += `git push -u origin ${branchToPush}`;
+        }
+
+        alert(errorMsg);
       }
     } else {
       alert('仓库创建成功！远程已添加。');
@@ -283,6 +460,7 @@ function handleCancel() {
     repoPrivate.value = false;
     repoAutoInit.value = false;
     autoPush.value = true;
+    useSSH.value = true;
   }, 300);
 }
 </script>
@@ -410,7 +588,9 @@ function handleCancel() {
                 v-model="repoName"
                 type="text"
                 placeholder="my-awesome-project"
+                :class="{ 'error': repoNameError }"
               />
+              <p v-if="repoNameError" class="error-message">{{ repoNameError }}</p>
             </div>
 
             <div class="form-group">
@@ -432,6 +612,20 @@ function handleCancel() {
                 <input type="checkbox" v-model="repoAutoInit">
                 <span>初始化 README</span>
               </label>
+            </div>
+
+            <div class="form-group">
+              <label>远程 URL 类型</label>
+              <div class="radio-group">
+                <label class="radio-label">
+                  <input type="radio" :value="false" v-model="useSSH">
+                  <span>HTTPS（使用 Token 自动认证，推荐）</span>
+                </label>
+                <label class="radio-label">
+                  <input type="radio" :value="true" v-model="useSSH">
+                  <span>SSH（需要配置 SSH 密钥）</span>
+                </label>
+              </div>
             </div>
 
             <div class="form-group">
@@ -809,6 +1003,22 @@ function handleCancel() {
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
+.form-group input.error {
+  border-color: #ef4444;
+}
+
+.form-group input.error:focus {
+  border-color: #ef4444;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
+}
+
+.error-message {
+  color: #ef4444;
+  font-size: var(--font-size-xs);
+  margin-top: 4px;
+  margin-bottom: 0;
+}
+
 .url-examples {
   margin-top: var(--spacing-sm);
   padding: var(--spacing-sm);
@@ -1013,6 +1223,34 @@ code {
 }
 
 .checkbox-label input[type="checkbox"] {
+  cursor: pointer;
+}
+
+.radio-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+  margin-top: var(--spacing-xs);
+}
+
+.radio-label {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  font-size: var(--font-size-sm);
+  color: var(--text-primary);
+  cursor: pointer;
+  padding: var(--spacing-sm);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-color);
+  transition: all var(--transition-fast);
+}
+
+.radio-label:hover {
+  background-color: var(--bg-hover);
+}
+
+.radio-label input[type="radio"] {
   cursor: pointer;
 }
 

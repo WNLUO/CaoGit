@@ -200,6 +200,17 @@ pub fn add_remote(repo_path: String, name: String, url: String) -> ApiResponse<S
     }
 }
 
+#[tauri::command]
+pub fn remove_remote(repo_path: String, name: String) -> ApiResponse<String> {
+    match GitRepository::open(&repo_path) {
+        Ok(repo) => match repo.remove_remote(&name) {
+            Ok(_) => ApiResponse::success("Remote removed".to_string()),
+            Err(e) => ApiResponse::error(e.to_string()),
+        },
+        Err(e) => ApiResponse::error(e.to_string()),
+    }
+}
+
 // Merge operations
 #[tauri::command]
 pub fn merge_branch(repo_path: String, branch_name: String) -> ApiResponse<String> {

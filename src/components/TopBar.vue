@@ -4,6 +4,10 @@ import { repoStore } from '../stores/repoStore';
 import { GitApi } from '../services/gitApi';
 import PublishModal from './PublishModal.vue';
 
+const emit = defineEmits<{
+  (e: 'open-global-settings'): void;
+}>();
+
 const currentBranch = computed(() => repoStore.currentBranch);
 const isPushing = ref(false);
 const isPulling = ref(false);
@@ -215,6 +219,7 @@ async function createNewBranch() {
       :repo-path="repoStore.activeRepo.path"
       @close="showPublishModal = false"
       @remote-added="handleRemoteAdded"
+      @open-settings="emit('open-global-settings')"
     />
   </header>
 </template>

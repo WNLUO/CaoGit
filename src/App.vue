@@ -50,7 +50,7 @@ function handleRepoAdded(path: string) {
       @select-repo="selectRepo"
     />
     <main class="main-content">
-      <TopBar />
+      <TopBar @open-global-settings="openGlobalSettings" />
       <div class="content-area">
         <RepoMain v-if="activeRepo" :repo="activeRepo" />
         <div v-else class="welcome-container">
