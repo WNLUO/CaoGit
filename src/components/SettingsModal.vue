@@ -46,6 +46,9 @@ const verifyingToken = ref<'github' | 'gitlab' | 'gitee' | null>(null);
 // Debug mode setting
 const debugModeEnabled = ref(false);
 
+// Release Manager GitHub Token
+const releaseGithubToken = ref('');
+
 const repoProtocol = ref<'http' | 'https' | 'ssh'>('https');
 const repoAuthType = ref<'none' | 'token' | 'password'>('none');
 const repoToken = ref('');
@@ -149,6 +152,9 @@ watch(() => props.isOpen, (newVal) => {
       giteeUsername.value = globalSettings.gitPlatforms.gitee.username || '';
 
       debugModeEnabled.value = debugStore.enabled;
+
+      // Load Release Manager GitHub Token
+      releaseGithubToken.value = globalSettings.githubToken || '';
     } else if (props.mode === 'repo' && props.repo) {
       // Load repo settings
       repoProtocol.value = props.repo.protocol;
@@ -391,6 +397,9 @@ function save() {
     // Save debug mode
     debugStore.setDebugMode(debugModeEnabled.value);
 
+    // Save Release Manager GitHub Token
+    settingsStore.updateGitHubToken(releaseGithubToken.value);
+
     toastStore.success('全局设置已保存');
   } else if (props.repo) {
     // Save repo settings
@@ -612,6 +621,30 @@ function save() {
                 <span class="username">{{ giteeUsername }}</span>
               </div>
             </div>
+          </div>
+
+          <div class="divider"></div>
+
+          <h4>发布管理 (Release Manager)</h4>
+          <p class="hint">配置 GitHub Token 后可一键发布多平台版本并监控构建状态</p>
+
+          <div class="input-group">
+            <label>GitHub Personal Access Token</label>
+            <input
+              v-model="releaseGithubToken"
+              type="password"
+              placeholder="ghp_..."
+            />
+            <span class="hint">
+              需要权限: <code>repo</code>, <code>workflow</code>
+              <a
+                href="https://github.com/settings/tokens/new?scopes=repo,workflow&description=Git%20Manager%20Release"
+                target="_blank"
+                class="help-link"
+              >
+                创建 Token
+              </a>
+            </span>
           </div>
 
           <div class="divider"></div>

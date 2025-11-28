@@ -27,7 +27,7 @@
             <div class="publish-form">
               <div class="form-group">
                 <label>当前版本:</label>
-                <span class="current-version">{{ releaseInfo.currentVersion }}</span>
+                <span class="current-version">{{ releaseInfo.current_version }}</span>
               </div>
 
               <div class="form-group">
@@ -58,8 +58,8 @@
             <div class="releases-list">
               <div v-for="release in releaseInfo.releases.slice(0, 5)" :key="release.id" class="release-item">
                 <div class="release-header">
-                  <span class="release-tag">{{ release.tagName }}</span>
-                  <span class="release-date">{{ formatDate(release.createdAt) }}</span>
+                  <span class="release-tag">{{ release.tag_name }}</span>
+                  <span class="release-date">{{ formatDate(release.created_at) }}</span>
                 </div>
                 <div class="release-body">
                   <p>{{ release.name }}</p>
@@ -68,7 +68,7 @@
                     <span>📥 {{ totalDownloads(release.assets) }} 次下载</span>
                   </div>
                 </div>
-                <a :href="release.htmlUrl" target="_blank" class="view-link">查看详情 →</a>
+                <a :href="release.html_url" target="_blank" class="view-link">查看详情 →</a>
               </div>
             </div>
           </div>
@@ -77,19 +77,19 @@
           <div class="section">
             <h3>构建状态</h3>
             <div class="workflows-list">
-              <div v-for="run in releaseInfo.workflowRuns.slice(0, 5)" :key="run.id" class="workflow-item">
+              <div v-for="run in releaseInfo.workflow_runs.slice(0, 5)" :key="run.id" class="workflow-item">
                 <div class="workflow-status" :class="getStatusClass(run.status, run.conclusion)">
                   {{ getStatusIcon(run.status, run.conclusion) }}
                 </div>
                 <div class="workflow-info">
                   <div class="workflow-name">{{ run.name }}</div>
                   <div class="workflow-meta">
-                    <span>{{ formatDate(run.createdAt) }}</span>
+                    <span>{{ formatDate(run.created_at) }}</span>
                     <span v-if="run.conclusion">{{ run.conclusion }}</span>
                   </div>
                 </div>
                 <div class="workflow-actions">
-                  <a :href="run.htmlUrl" target="_blank" class="view-link-small">查看</a>
+                  <a :href="run.html_url" target="_blank" class="view-link-small">查看</a>
                   <button v-if="run.conclusion === 'failure'" @click="rerunWorkflow(run.id)" class="rerun-btn">
                     重新运行
                   </button>
@@ -145,7 +145,7 @@ async function loadReleaseInfo() {
     })
 
     // Set default new version
-    newVersion.value = releaseInfo.value.currentVersion
+    newVersion.value = releaseInfo.value.current_version
   } catch (e: any) {
     error.value = e.toString()
   } finally {
@@ -188,7 +188,7 @@ async function publishRelease() {
 async function incrementVersion(part: string) {
   try {
     newVersion.value = await invoke('increment_version', {
-      version: newVersion.value || releaseInfo.value.currentVersion,
+      version: newVersion.value || releaseInfo.value.current_version,
       part
     })
   } catch (e) {
@@ -232,7 +232,7 @@ function formatDate(dateStr: string) {
 }
 
 function totalDownloads(assets: any[]) {
-  return assets.reduce((sum, asset) => sum + asset.downloadCount, 0)
+  return assets.reduce((sum, asset) => sum + asset.download_count, 0)
 }
 
 function getStatusClass(status: string, conclusion: string | null) {

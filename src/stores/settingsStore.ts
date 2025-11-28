@@ -38,6 +38,7 @@ export interface GlobalSettings {
   networkTest: NetworkTestSettings;
   gitPlatforms: GitPlatformsSettings;
   layout: LayoutSettings;
+  githubToken?: string; // GitHub Token for Release Manager
 }
 
 const DEFAULT_SETTINGS: GlobalSettings = {
@@ -75,7 +76,8 @@ const DEFAULT_SETTINGS: GlobalSettings = {
     leftPanelWidth: 320,
     rightPanelTopHeight: 60,
     commitSectionHeight: 200
-  }
+  },
+  githubToken: undefined
 };
 
 function loadSettings(): GlobalSettings {
@@ -125,5 +127,10 @@ export const settingsStore = reactive({
   updateLayoutSettings(layout: Partial<LayoutSettings>) {
     this.settings.layout = { ...this.settings.layout, ...layout };
     this.saveSettings({ layout: this.settings.layout });
+  },
+
+  updateGitHubToken(token: string) {
+    this.settings.githubToken = token;
+    this.saveSettings({ githubToken: token });
   }
 });

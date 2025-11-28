@@ -6,6 +6,8 @@ import { GitApi } from '../services/gitApi';
 import PublishModal from './PublishModal.vue';
 import ThemeToggle from './ThemeToggle.vue';
 import ProgressBar from './ProgressBar.vue';
+import ReleaseManagerModal from './ReleaseManagerModal.vue';
+import { settingsStore } from '../stores/settingsStore';
 
 const emit = defineEmits<{
   (e: 'open-global-settings'): void;
@@ -17,6 +19,7 @@ const isPulling = ref(false);
 const isFetching = ref(false);
 const showBranchMenu = ref(false);
 const showPublishModal = ref(false);
+const showReleaseManager = ref(false);
 const hasRemote = ref(false);
 
 // 进度条状态
@@ -171,6 +174,23 @@ function openPublishModal() {
   showPublishModal.value = true;
 }
 
+function openReleaseManager() {
+  if (!repoStore.activeRepo) {
+    toastStore.warning('请先打开一个仓库');
+    return;
+  }
+
+  showReleaseManager.value = true;
+}
+
+function handleReleaseSuccess() {
+  toastStore.success('发布操作成功!');
+  // 刷新仓库数据
+  if (repoStore.activeRepo) {
+    repoStore.loadRepoData(repoStore.activeRepo);
+  }
+}
+
 function handleRemoteAdded() {
   // 远程仓库添加成功后的回调
   // 可以在这里刷新仓库状态
@@ -292,6 +312,20 @@ async function createNewBranch() {
         </span>
         <span>发布</span>
       </button>
+
+      <div class="separator"></div>
+
+      <button
+        v-if="hasRemote"
+        class="action-btn release-btn"
+        title="发布管理 - 一键构建多平台版本"
+        @click="openReleaseManager"
+      >
+        <span class="icon">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="16 12 12 8 8 12"></polyline><line x1="12" y1="16" x2="12" y2="8"></line></svg>
+        </span>
+        <span>发布管理</span>
+      </button>
     </div>
 
     <!-- Publish/Remote Modal -->
@@ -302,6 +336,16 @@ async function createNewBranch() {
       @close="showPublishModal = false"
       @remote-added="handleRemoteAdded"
       @open-settings="emit('open-global-settings')"
+    />
+
+    <!-- Release Manager Modal -->
+    <ReleaseManagerModal
+      v-if="repoStore.activeRepo"
+      :show="showReleaseManager"
+      :repo-path="repoStore.activeRepo.path"
+      :github-token="settingsStore.settings.githubToken || null"
+      @close="showReleaseManager = false"
+      @success="handleReleaseSuccess"
     />
 
     <!-- Progress Bar -->
@@ -502,6 +546,19 @@ async function createNewBranch() {
 .action-btn.primary:hover:not(:disabled) {
   background-color: var(--accent-hover);
   border-color: var(--accent-hover);
+}
+
+.action-btn.release-btn {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border-color: #667eea;
+  box-shadow: 0 2px 4px 0 rgba(102, 126, 234, 0.4);
+}
+
+.action-btn.release-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #5568d3 0%, #653a8b 100%);
+  border-color: #5568d3;
+  transform: translateY(-1px);
 }
 
 .icon {

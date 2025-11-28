@@ -61,12 +61,35 @@ impl GitHubClient {
     pub fn parse_repo_url(url: &str) -> Result<(String, String)> {
         // 支持格式：
         // https://github.com/owner/repo.git
+        // https://token@github.com/owner/repo.git
+        // https://username:password@github.com/owner/repo.git
         // git@github.com:owner/repo.git
         // https://github.com/owner/repo
 
-        let url = url.trim_end_matches(".git");
+        let mut url = url.trim_end_matches(".git").to_string();
+
+        // 移除 https:// 或 http:// 中的认证信息
+        // 格式: https://token@github.com 或 https://username:password@github.com
+        if url.starts_with("https://") || url.starts_with("http://") {
+            let protocol = if url.starts_with("https://") { "https://" } else { "http://" };
+            let without_protocol = url.strip_prefix(protocol).unwrap();
+
+            // 检查是否包含 @ 符号 (认证信息)
+            if let Some(at_pos) = without_protocol.find('@') {
+                // 移除 @ 之前的所有内容 (token 或 username:password)
+                let cleaned = &without_protocol[at_pos + 1..];
+                url = format!("{}{}", protocol, cleaned);
+            }
+        }
 
         if let Some(caps) = url.strip_prefix("https://github.com/") {
+            let parts: Vec<&str> = caps.split('/').collect();
+            if parts.len() >= 2 {
+                return Ok((parts[0].to_string(), parts[1].to_string()));
+            }
+        }
+
+        if let Some(caps) = url.strip_prefix("http://github.com/") {
             let parts: Vec<&str> = caps.split('/').collect();
             if parts.len() >= 2 {
                 return Ok((parts[0].to_string(), parts[1].to_string()));
@@ -80,7 +103,7 @@ impl GitHubClient {
             }
         }
 
-        anyhow::bail!("Invalid GitHub URL format: {}", url)
+        anyhow::bail!("GitHub URL 格式无效: {}", url)
     }
 
     /// 获取所有 Releases
@@ -96,12 +119,12 @@ impl GitHubClient {
         let response = req
             .send()
             .await
-            .context("Failed to fetch releases from GitHub")?;
+            .context("从 GitHub 获取 Releases 失败")?;
 
         if !response.status().is_success() {
             let status = response.status();
             let text = response.text().await.unwrap_or_default();
-            anyhow::bail!("GitHub API error ({}): {}", status, text);
+            anyhow::bail!("GitHub API 错误 ({}): {}", status, text);
         }
 
         let releases: Vec<GitHubRelease> = response.json().await?;
@@ -128,12 +151,12 @@ impl GitHubClient {
         let response = req
             .send()
             .await
-            .context("Failed to fetch workflow runs from GitHub")?;
+            .context("从 GitHub 获取 Workflow Runs 失败")?;
 
         if !response.status().is_success() {
             let status = response.status();
             let text = response.text().await.unwrap_or_default();
-            anyhow::bail!("GitHub API error ({}): {}", status, text);
+            anyhow::bail!("GitHub API 错误 ({}): {}", status, text);
         }
 
         let runs_response: WorkflowRunsResponse = response.json().await?;
@@ -161,7 +184,7 @@ impl GitHubClient {
         let token = self
             .token
             .as_ref()
-            .context("GitHub token required to rerun workflows")?;
+            .context("重新运行 workflow 需要 GitHub token")?;
 
         let url = format!(
             "https://api.github.com/repos/{}/{}/actions/runs/{}/rerun",
@@ -174,12 +197,12 @@ impl GitHubClient {
             .header("Authorization", format!("Bearer {}", token))
             .send()
             .await
-            .context("Failed to rerun workflow")?;
+            .context("重新运行 workflow 失败")?;
 
         if !response.status().is_success() {
             let status = response.status();
             let text = response.text().await.unwrap_or_default();
-            anyhow::bail!("Failed to rerun workflow ({}): {}", status, text);
+            anyhow::bail!("重新运行 workflow 失败 ({}): {}", status, text);
         }
 
         Ok(())
@@ -200,6 +223,20 @@ mod tests {
             ("https://github.com/WNLUO/CaoGit", ("WNLUO", "CaoGit")),
             ("git@github.com:WNLUO/CaoGit.git", ("WNLUO", "CaoGit")),
             ("git@github.com:WNLUO/CaoGit", ("WNLUO", "CaoGit")),
+            // 带 token 的 URL
+            (
+                "https://ghp_token123@github.com/WNLUO/CaoGit.git",
+                ("WNLUO", "CaoGit"),
+            ),
+            (
+                "https://ghp_token123@github.com/WNLUO/CaoGit",
+                ("WNLUO", "CaoGit"),
+            ),
+            // 带 username:password 的 URL
+            (
+                "https://user:pass@github.com/WNLUO/CaoGit.git",
+                ("WNLUO", "CaoGit"),
+            ),
         ];
 
         for (url, (expected_owner, expected_repo)) in cases {
