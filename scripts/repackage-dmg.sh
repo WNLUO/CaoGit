@@ -26,47 +26,47 @@ TEMP_DMG="$DMG_DIR/temp_${DMG_NAME}"
 echo "✅ 找到DMG文件: $DMG_NAME"
 echo "🔄 正在重新打包DMG..."
 
+# 检查bundle_dmg.sh工具是否存在（它就是create-dmg）
+BUNDLE_DMG_SCRIPT="$DMG_DIR/bundle_dmg.sh"
+
+if [ ! -f "$BUNDLE_DMG_SCRIPT" ]; then
+  echo "❌ bundle_dmg.sh script not found at $BUNDLE_DMG_SCRIPT"
+  ls -la "$DMG_DIR"
+  exit 1
+fi
+
+echo "📦 使用bundle_dmg.sh脚本: $BUNDLE_DMG_SCRIPT"
+
+# 挂载原始DMG以提取其内容
+MOUNT_DIR=$(mktemp -d)
+echo "📂 挂载原始DMG到: $MOUNT_DIR"
+
+hdiutil attach -nobrowse -readonly "$DMG_FILE" -mountpoint "$MOUNT_DIR" 2>/dev/null || {
+  echo "❌ 无法挂载DMG"
+  exit 1
+}
+
+# 复制DMG内容到临时目录
+TEMP_CONTENT_DIR="/tmp/CaoGit_content_$$"
+mkdir -p "$TEMP_CONTENT_DIR"
+cp -r "$MOUNT_DIR"/* "$TEMP_CONTENT_DIR/"
+
+# 卸载原始DMG
+hdiutil detach "$MOUNT_DIR" 2>/dev/null || true
+rm -rf "$MOUNT_DIR"
+
 # 备份原始DMG
 cp "$DMG_FILE" "${DMG_FILE}.bak"
 
 # 删除原始DMG，我们将重新创建它
 rm -f "$DMG_FILE"
 
-# 检查create-dmg工具是否存在
-CREATE_DMG_SCRIPT=""
+# 使用bundle_dmg.sh（create-dmg）重新创建DMG，添加背景图和其他参数
+chmod +x "$BUNDLE_DMG_SCRIPT"
 
-# 尝试多个可能的位置
-for path in \
-  "$PROJECT_ROOT/src-tauri/target/release/bundle/share/create-dmg/create-dmg" \
-  "$PROJECT_ROOT/src-tauri/target/release/build/tauri-*/out/create-dmg" \
-  "$(find "$PROJECT_ROOT/src-tauri/target" -name "create-dmg" -type f 2>/dev/null | head -n 1)"
-do
-  if [ -f "$path" ]; then
-    CREATE_DMG_SCRIPT="$path"
-    break
-  fi
-done
+echo "🔨 使用bundle_dmg.sh重新打包DMG..."
 
-if [ -z "$CREATE_DMG_SCRIPT" ] || [ ! -f "$CREATE_DMG_SCRIPT" ]; then
-  echo "❌ create-dmg script not found"
-  echo "   搜索位置:"
-  echo "   - $PROJECT_ROOT/src-tauri/target/release/bundle/share/create-dmg/create-dmg"
-  echo "   - $PROJECT_ROOT/src-tauri/target/release/build/tauri-*/out/create-dmg"
-  find "$PROJECT_ROOT/src-tauri/target" -name "create-dmg" -type f 2>/dev/null | head -5
-  exit 1
-fi
-
-echo "📦 使用create-dmg脚本: $CREATE_DMG_SCRIPT"
-
-# 创建临时App目录
-TEMP_APP_DIR="/tmp/CaoGit_dmg_$$"
-mkdir -p "$TEMP_APP_DIR"
-cp -r "$APP_DIR" "$TEMP_APP_DIR/"
-
-# 使用create-dmg重新创建DMG，添加背景图和其他参数
-chmod +x "$CREATE_DMG_SCRIPT"
-
-"$CREATE_DMG_SCRIPT" \
+"$BUNDLE_DMG_SCRIPT" \
   --volname "CaoGit" \
   --background "$ASSETS_DIR/dmg-background.jpg" \
   --window-pos 100 100 \
@@ -75,10 +75,10 @@ chmod +x "$CREATE_DMG_SCRIPT"
   --icon "CaoGit.app" 240 300 \
   --app-drop-link 790 300 \
   "$DMG_FILE" \
-  "$TEMP_APP_DIR"
+  "$TEMP_CONTENT_DIR"
 
 # 清理临时文件
-rm -rf "$TEMP_APP_DIR"
+rm -rf "$TEMP_CONTENT_DIR"
 
 if [ -f "$DMG_FILE" ]; then
   echo "✅ DMG重新打包完成！"
