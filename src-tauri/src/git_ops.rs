@@ -1,5 +1,5 @@
 use git2::{
-    BranchType, DiffOptions, Repository, Status, StatusOptions, RemoteCallbacks, PushOptions, FetchOptions,
+    BranchType, Cred, DiffOptions, Repository, Status, StatusOptions, RemoteCallbacks, PushOptions, FetchOptions,
 };
 use serde::{Deserialize, Serialize};
 use std::path::Path;
@@ -533,7 +533,22 @@ impl GitRepository {
     pub fn push(&self, remote_name: &str, branch_name: &str) -> Result<()> {
         let mut remote = self.repo.find_remote(remote_name)?;
         let refspec = format!("refs/heads/{}:refs/heads/{}", branch_name, branch_name);
-        remote.push(&[&refspec], None)?;
+
+        // 配置推送选项和认证回调
+        let mut callbacks = RemoteCallbacks::new();
+        callbacks.credentials(|_url, username_from_url, _allowed_types| {
+            // 尝试使用 SSH 密钥
+            if let Some(username) = username_from_url {
+                Cred::ssh_key_from_agent(username)
+            } else {
+                Cred::ssh_key_from_agent("git")
+            }
+        });
+
+        let mut push_options = PushOptions::new();
+        push_options.remote_callbacks(callbacks);
+
+        remote.push(&[&refspec], Some(&mut push_options))?;
         Ok(())
     }
 
@@ -541,7 +556,22 @@ impl GitRepository {
     pub fn push_tag(&self, remote_name: &str, tag_name: &str) -> Result<()> {
         let mut remote = self.repo.find_remote(remote_name)?;
         let refspec = format!("refs/tags/{}:refs/tags/{}", tag_name, tag_name);
-        remote.push(&[&refspec], None)?;
+
+        // 配置推送选项和认证回调
+        let mut callbacks = RemoteCallbacks::new();
+        callbacks.credentials(|_url, username_from_url, _allowed_types| {
+            // 尝试使用 SSH 密钥
+            if let Some(username) = username_from_url {
+                Cred::ssh_key_from_agent(username)
+            } else {
+                Cred::ssh_key_from_agent("git")
+            }
+        });
+
+        let mut push_options = PushOptions::new();
+        push_options.remote_callbacks(callbacks);
+
+        remote.push(&[&refspec], Some(&mut push_options))?;
         Ok(())
     }
 
@@ -549,6 +579,17 @@ impl GitRepository {
         let mut remote = self.repo.find_remote(remote_name)?;
 
         let mut callbacks = RemoteCallbacks::new();
+
+        // 添加认证回调
+        callbacks.credentials(|_url, username_from_url, _allowed_types| {
+            // 尝试使用 SSH 密钥
+            if let Some(username) = username_from_url {
+                Cred::ssh_key_from_agent(username)
+            } else {
+                Cred::ssh_key_from_agent("git")
+            }
+        });
+
         let window_clone = window.clone();
         let last_update = Arc::new(Mutex::new(std::time::Instant::now()));
         let last_bytes = Arc::new(Mutex::new(0usize));

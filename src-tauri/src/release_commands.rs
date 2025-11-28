@@ -84,13 +84,8 @@ pub async fn publish_new_release(
 ) -> Result<String, String> {
     let repo = GitRepository::open(&repo_path).map_err(|e| e.to_string())?;
 
-    // 检查是否有未提交的改动
-    let status = repo.get_status().map_err(|e| e.to_string())?;
-    if !status.is_empty() {
-        return Err("仓库有未提交的更改，请先提交或暂存这些更改。".to_string());
-    }
-
     // 第一步：更新 tauri.conf.json 和 package.json 中的版本号
+    // 注意：这会修改文件，所以状态检查必须在更新之前完成（但我们允许自动生成的改动）
     update_tauri_config_version(&repo_path, &config.version)
         .map_err(|e| format!("更新 tauri.conf.json 版本号失败: {}", e))?;
 
@@ -104,29 +99,63 @@ pub async fn publish_new_release(
     repo.stage_file("package.json")
         .map_err(|e| format!("暂存 package.json 失败: {}", e))?;
 
+    // 检查是否还有其他未暂存的改动（除了我们刚刚修改的配置文件）
+    let status_after_stage = repo.get_status().map_err(|e| e.to_string())?;
+    let has_other_changes = status_after_stage.iter().any(|item| {
+        // 如果有除了已暂存的 tauri.conf.json 和 package.json 之外的其他改动
+        !item.path.ends_with("tauri.conf.json") && !item.path.ends_with("package.json")
+    });
+
+    if has_other_changes {
+        // 回滚暂存的文件
+        let _ = repo.unstage_file("src-tauri/tauri.conf.json");
+        let _ = repo.unstage_file("package.json");
+        return Err("仓库有其他未提交的更改，请先提交或暂存这些更改后再发布。".to_string());
+    }
+
     let commit_message = format!("chore: bump version to {}", config.version);
     repo.commit(&commit_message)
         .map_err(|e| format!("提交版本号更改失败: {}", e))?;
 
     // 第三步：创建标签
     if config.create_tag {
+        println!("正在创建标签: {}", config.version);
         repo.create_tag(&config.version, Some(&config.message))
-            .map_err(|e| format!("创建标签失败: {}", e))?;
+            .map_err(|e| {
+                eprintln!("创建标签失败: {}", e);
+                format!("创建标签失败: {}", e)
+            })?;
+        println!("标签创建成功");
     }
 
     // 第四步：推送提交和标签
     if config.push_tag {
         // 获取当前分支名称
+        println!("正在获取当前分支名称...");
         let current_branch = repo.get_current_branch()
-            .map_err(|e| format!("获取当前分支失败: {}", e))?;
+            .map_err(|e| {
+                eprintln!("获取当前分支失败: {}", e);
+                format!("获取当前分支失败: {}", e)
+            })?;
+        println!("当前分支: {}", current_branch);
 
         // 先推送提交
+        println!("正在推送提交到 origin/{}...", current_branch);
         repo.push("origin", &current_branch)
-            .map_err(|e| format!("推送提交失败: {}", e))?;
+            .map_err(|e| {
+                eprintln!("推送提交失败: {}", e);
+                format!("推送提交失败: {}。请确保已配置 Git 认证（SSH 密钥或凭据管理器）", e)
+            })?;
+        println!("提交推送成功");
 
         // 再推送标签到远程
+        println!("正在推送标签 {} 到 origin...", config.version);
         repo.push_tag("origin", &config.version)
-            .map_err(|e| format!("推送标签失败: {}", e))?;
+            .map_err(|e| {
+                eprintln!("推送标签失败: {}", e);
+                format!("推送标签失败: {}。请确保已配置 Git 认证（SSH 密钥或凭据管理器）", e)
+            })?;
+        println!("标签推送成功");
     }
 
     // 获取远程 URL 并返回 Actions 链接
