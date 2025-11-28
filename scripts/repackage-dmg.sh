@@ -11,16 +11,20 @@ APP_DIR="$PROJECT_ROOT/src-tauri/target/release/bundle/macos/CaoGit.app"
 ASSETS_DIR="$PROJECT_ROOT/src-tauri/assets"
 
 # 查找原始DMG文件
+echo "📍 查找DMG文件在: $DMG_DIR"
 DMG_FILE=$(find "$DMG_DIR" -name "*.dmg" -type f | head -n 1)
 if [ ! -f "$DMG_FILE" ]; then
   echo "❌ DMG file not found in $DMG_DIR"
+  echo "   目录内容:"
+  ls -la "$DMG_DIR" 2>/dev/null || echo "   目录不存在"
   exit 1
 fi
 
 DMG_NAME=$(basename "$DMG_FILE")
 TEMP_DMG="$DMG_DIR/temp_${DMG_NAME}"
 
-echo "🔄 正在重新打包DMG: $DMG_NAME"
+echo "✅ 找到DMG文件: $DMG_NAME"
+echo "🔄 正在重新打包DMG..."
 
 # 备份原始DMG
 cp "$DMG_FILE" "${DMG_FILE}.bak"
@@ -29,14 +33,26 @@ cp "$DMG_FILE" "${DMG_FILE}.bak"
 rm -f "$DMG_FILE"
 
 # 检查create-dmg工具是否存在
-CREATE_DMG_SCRIPT="$PROJECT_ROOT/src-tauri/target/release/bundle/share/create-dmg/create-dmg"
-if [ ! -f "$CREATE_DMG_SCRIPT" ]; then
-  # 如果不存在，尝试找其他位置
-  CREATE_DMG_SCRIPT=$(find "$PROJECT_ROOT/src-tauri/target" -name "create-dmg" -type f 2>/dev/null | head -n 1)
-fi
+CREATE_DMG_SCRIPT=""
 
-if [ ! -f "$CREATE_DMG_SCRIPT" ]; then
+# 尝试多个可能的位置
+for path in \
+  "$PROJECT_ROOT/src-tauri/target/release/bundle/share/create-dmg/create-dmg" \
+  "$PROJECT_ROOT/src-tauri/target/release/build/tauri-*/out/create-dmg" \
+  "$(find "$PROJECT_ROOT/src-tauri/target" -name "create-dmg" -type f 2>/dev/null | head -n 1)"
+do
+  if [ -f "$path" ]; then
+    CREATE_DMG_SCRIPT="$path"
+    break
+  fi
+done
+
+if [ -z "$CREATE_DMG_SCRIPT" ] || [ ! -f "$CREATE_DMG_SCRIPT" ]; then
   echo "❌ create-dmg script not found"
+  echo "   搜索位置:"
+  echo "   - $PROJECT_ROOT/src-tauri/target/release/bundle/share/create-dmg/create-dmg"
+  echo "   - $PROJECT_ROOT/src-tauri/target/release/build/tauri-*/out/create-dmg"
+  find "$PROJECT_ROOT/src-tauri/target" -name "create-dmg" -type f 2>/dev/null | head -5
   exit 1
 fi
 
