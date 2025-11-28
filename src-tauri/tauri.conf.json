@@ -53,6 +53,23 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
+    "macOS": {
+      "dmg": {
+        "background": "assets/dmg-background.jpg",
+        "windowSize": {
+          "width": 1025,
+          "height": 678
+        },
+        "appPosition": {
+          "x": 240,
+          "y": 300
+        },
+        "applicationFolderPosition": {
+          "x": 790,
+          "y": 300
+        }
+      }
+    },
     "resources": [
       "resources/fix-macos.command",
       "resources/README-macOS.txt"
