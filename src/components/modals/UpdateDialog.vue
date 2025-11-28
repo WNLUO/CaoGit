@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { invoke } from '@tauri-apps/api/core';
-import { listen } from '@tauri-apps/api/event';
+import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { toastStore } from '../../stores/toastStore';
 
 interface UpdateInfo {
@@ -12,11 +12,39 @@ interface UpdateInfo {
   releasedAt: string;
 }
 
+interface PlatformDownloadInfo {
+  url: string;
+  filename: string;
+  platform: string;
+}
+
+interface UpdateInstallResult {
+  status: string;
+  file_path: string;
+  message: string;
+}
+
+interface DownloadProgress {
+  downloaded: number;
+  total: number;
+  progress: number;
+}
+
+type Platform = 'windows' | 'macos' | 'linux' | 'unknown';
+
 const showDialog = ref(false);
 const isDownloading = ref(false);
 const downloadProgress = ref(0);
+const downloadedSize = ref(0);
+const totalSize = ref(0);
 const updateInfo = ref<UpdateInfo | null>(null);
-const isMacOS = ref(false);
+const platform = ref<Platform>('unknown');
+const updateStatus = ref<'idle' | 'downloading' | 'installing' | 'success' | 'error'>('idle');
+const errorMessage = ref('');
+const resultMessage = ref('');
+
+let unlistenProgress: UnlistenFn | null = null;
+let unlistenUpdateAvailable: UnlistenFn | null = null;
 
 const formattedDate = computed(() => {
   if (!updateInfo.value) return '';
@@ -28,22 +56,88 @@ const formattedDate = computed(() => {
   }
 });
 
-onMounted(() => {
+const formattedProgress = computed(() => {
+  if (totalSize.value === 0) return '';
+  const downloaded = (downloadedSize.value / 1024 / 1024).toFixed(1);
+  const total = (totalSize.value / 1024 / 1024).toFixed(1);
+  return `${downloaded} MB / ${total} MB`;
+});
+
+const platformInfo = computed(() => {
+  switch (platform.value) {
+    case 'windows':
+      return {
+        icon: 'windows',
+        title: 'Windows',
+        description: '点击"立即更新"将自动下载并安装新版本',
+        buttonText: '立即更新',
+      };
+    case 'macos':
+      return {
+        icon: 'apple',
+        title: 'macOS',
+        description: '点击"立即更新"将下载安装包并生成自动安装脚本',
+        buttonText: '立即更新',
+      };
+    case 'linux':
+      return {
+        icon: 'linux',
+        title: 'Linux',
+        description: '点击"立即更新"将下载 AppImage 到 Downloads 文件夹',
+        buttonText: '立即更新',
+      };
+    default:
+      return {
+        icon: 'unknown',
+        title: '更新',
+        description: '请访问 Release 页面下载最新版本',
+        buttonText: '前往下载',
+      };
+  }
+});
+
+onMounted(async () => {
   // 检测操作系统
-  isMacOS.value = navigator.userAgent.includes('Macintosh');
+  detectPlatform();
 
   // 监听 update-available 事件
-  listen<void>('update-available', async () => {
+  unlistenUpdateAvailable = await listen<void>('update-available', async () => {
     await loadUpdateInfo();
-    showDialog.value = true;
+    if (updateInfo.value) {
+      showDialog.value = true;
+    }
+  });
+
+  // 监听下载进度事件
+  unlistenProgress = await listen<DownloadProgress>('update-download-progress', (event) => {
+    downloadedSize.value = event.payload.downloaded;
+    totalSize.value = event.payload.total;
+    downloadProgress.value = event.payload.progress;
   });
 });
+
+onUnmounted(() => {
+  if (unlistenProgress) unlistenProgress();
+  if (unlistenUpdateAvailable) unlistenUpdateAvailable();
+});
+
+function detectPlatform() {
+  const ua = navigator.userAgent.toLowerCase();
+  if (ua.includes('win')) {
+    platform.value = 'windows';
+  } else if (ua.includes('mac')) {
+    platform.value = 'macos';
+  } else if (ua.includes('linux')) {
+    platform.value = 'linux';
+  } else {
+    platform.value = 'unknown';
+  }
+}
 
 async function loadUpdateInfo() {
   try {
     const result = await invoke<any>('check_for_updates');
     if (result.success && result.has_update) {
-      // 获取发布说明（这里需要从某处获取，可能需要额外的后端支持）
       updateInfo.value = {
         currentVersion: result.current_version,
         latestVersion: result.latest_version,
@@ -51,46 +145,62 @@ async function loadUpdateInfo() {
         downloadUrl: result.download_url,
         releasedAt: result.released_at,
       };
+    } else if (result.success && !result.has_update) {
+      updateInfo.value = null;
     }
   } catch (error) {
     console.error('Failed to load update info:', error);
-    toastStore.error('加载更新信息失败');
   }
 }
 
 async function handleInstallNow() {
+  if (!updateInfo.value) return;
+
   isDownloading.value = true;
+  updateStatus.value = 'downloading';
   downloadProgress.value = 0;
+  downloadedSize.value = 0;
+  totalSize.value = 0;
+  errorMessage.value = '';
+  resultMessage.value = '';
 
   try {
-    // 模拟下载进度
-    const progressInterval = setInterval(() => {
-      downloadProgress.value += Math.random() * 30;
-      if (downloadProgress.value >= 100) {
-        downloadProgress.value = 100;
-        clearInterval(progressInterval);
-      }
-    }, 200);
+    // 获取平台特定的下载信息
+    const downloadInfo = await invoke<PlatformDownloadInfo>('get_platform_download_url', {
+      baseUrl: updateInfo.value.downloadUrl,
+      version: updateInfo.value.latestVersion
+    });
 
     // 调用安装命令
-    await invoke<any>('install_update');
+    const result = await invoke<UpdateInstallResult>('install_update', {
+      downloadUrl: downloadInfo.url,
+      platform: platform.value,
+      version: updateInfo.value.latestVersion
+    });
 
-    // 如果是 macOS，显示引导信息
-    if (isMacOS.value) {
-      toastStore.success('更新已下载，请打开 Downloads 文件夹完成安装');
-      showDialog.value = false;
-    } else {
-      // 其他系统：重启应用
-      setTimeout(() => {
-        toastStore.success('更新已安装，应用将在 3 秒后重启');
-        setTimeout(() => {
-          invoke('restart_app').catch(console.error);
-        }, 3000);
-      }, 500);
+    downloadProgress.value = 100;
+
+    if (result.status === 'installing') {
+      // Windows: 安装程序已启动
+      updateStatus.value = 'installing';
+      resultMessage.value = result.message;
+      toastStore.success(result.message);
+
+      // 延迟退出应用，让安装程序接管
+      setTimeout(async () => {
+        await invoke('exit_app');
+      }, 3000);
+    } else if (result.status === 'downloaded') {
+      // macOS/Linux: 下载完成，已打开文件夹
+      updateStatus.value = 'success';
+      resultMessage.value = result.message;
+      toastStore.success('下载完成，已打开文件夹');
     }
   } catch (error) {
     console.error('Failed to install update:', error);
-    toastStore.error(`更新安装失败: ${error}`);
+    updateStatus.value = 'error';
+    errorMessage.value = String(error);
+    toastStore.error(`更新失败: ${error}`);
   } finally {
     isDownloading.value = false;
   }
@@ -98,15 +208,40 @@ async function handleInstallNow() {
 
 function handleLaterRemind() {
   showDialog.value = false;
-  toastStore.info('提醒已关闭');
+  updateStatus.value = 'idle';
+  resultMessage.value = '';
+  errorMessage.value = '';
 }
 
 function handleViewRelease() {
   if (updateInfo.value) {
-    // 使用 opener 插件打开 URL
-    invoke('plugin:opener|open', { path: updateInfo.value.downloadUrl }).catch(console.error);
+    // 打开 Release 页面
+    invoke('install_update', {
+      downloadUrl: updateInfo.value.downloadUrl,
+      platform: 'browser',
+      version: updateInfo.value.latestVersion
+    }).catch(() => {
+      // 如果失败，尝试使用 opener
+      window.open(updateInfo.value?.downloadUrl, '_blank');
+    });
   }
 }
+
+// 暴露方法供外部调用（手动检查更新）
+async function checkForUpdates() {
+  try {
+    await loadUpdateInfo();
+    if (updateInfo.value) {
+      showDialog.value = true;
+    } else {
+      toastStore.success('已是最新版本');
+    }
+  } catch (error) {
+    toastStore.error('检查更新失败');
+  }
+}
+
+defineExpose({ checkForUpdates });
 </script>
 
 <template>
@@ -115,7 +250,7 @@ function handleViewRelease() {
       <!-- 标题 -->
       <div class="dialog-header">
         <h2>发现新版本</h2>
-        <button class="close-btn" @click="handleLaterRemind">×</button>
+        <button class="close-btn" @click="handleLaterRemind" :disabled="isDownloading && updateStatus === 'downloading'">×</button>
       </div>
 
       <!-- 内容 -->
@@ -130,47 +265,81 @@ function handleViewRelease() {
           <div class="release-date">{{ formattedDate }}</div>
         </div>
 
-        <!-- 发布说明 -->
-        <div class="release-notes">
-          <h3>更新说明</h3>
-          <p>{{ updateInfo?.releaseNotes }}</p>
+        <!-- 平台信息 -->
+        <div class="platform-section" v-if="updateStatus === 'idle'">
+          <div class="platform-header">
+            <span class="platform-title">{{ platformInfo.title }}</span>
+          </div>
+          <p class="platform-description">{{ platformInfo.description }}</p>
         </div>
 
         <!-- 下载进度 -->
-        <div v-if="isDownloading" class="download-progress">
+        <div v-if="updateStatus === 'downloading'" class="download-section">
+          <div class="download-status">
+            <span class="status-icon spinning">↻</span>
+            <span>正在下载...</span>
+          </div>
           <div class="progress-bar">
             <div class="progress-fill" :style="{ width: `${downloadProgress}%` }"></div>
           </div>
-          <div class="progress-text">{{ Math.floor(downloadProgress) }}%</div>
+          <div class="progress-info">
+            <span>{{ downloadProgress }}%</span>
+            <span v-if="formattedProgress">{{ formattedProgress }}</span>
+          </div>
         </div>
 
-        <!-- macOS 提示 -->
-        <div v-if="isMacOS && !isDownloading" class="platform-info">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <circle cx="12" cy="12" r="10"></circle>
-            <line x1="12" y1="8" x2="12" y2="12"></line>
-            <line x1="12" y1="16" x2="12.01" y2="16"></line>
-          </svg>
-          <span>macOS 需要手动安装，下载完成后请打开 Downloads 文件夹</span>
+        <!-- 安装中 -->
+        <div v-if="updateStatus === 'installing'" class="result-section installing">
+          <div class="result-icon">⏳</div>
+          <div class="result-title">正在安装</div>
+          <p class="result-message">{{ resultMessage }}</p>
+          <p class="result-hint">应用将在几秒后退出...</p>
+        </div>
+
+        <!-- 下载成功 -->
+        <div v-if="updateStatus === 'success'" class="result-section success">
+          <div class="result-icon">✅</div>
+          <div class="result-title">下载完成</div>
+          <p class="result-message" v-html="resultMessage.replace(/\n/g, '<br>')"></p>
+
+          <!-- macOS 特别提示 -->
+          <div v-if="platform === 'macos'" class="macos-tip">
+            <strong>下一步：</strong>
+            <p>请双击运行 <code>安装CaoGit.command</code> 脚本，它会自动完成安装并解决"已损坏"问题。</p>
+          </div>
+        </div>
+
+        <!-- 错误信息 -->
+        <div v-if="updateStatus === 'error'" class="result-section error">
+          <div class="result-icon">❌</div>
+          <div class="result-title">更新失败</div>
+          <p class="result-message">{{ errorMessage }}</p>
         </div>
       </div>
 
       <!-- 按钮 -->
       <div class="dialog-footer">
-        <button class="btn btn-secondary" @click="handleLaterRemind" :disabled="isDownloading">
-          稍后提醒
+        <button
+          class="btn btn-secondary"
+          @click="handleLaterRemind"
+          :disabled="updateStatus === 'downloading'"
+        >
+          {{ updateStatus === 'success' || updateStatus === 'error' ? '关闭' : '稍后提醒' }}
         </button>
-        <button class="btn btn-secondary" @click="handleViewRelease" :disabled="isDownloading">
+        <button
+          v-if="updateStatus === 'idle' || updateStatus === 'error'"
+          class="btn btn-secondary"
+          @click="handleViewRelease"
+        >
           查看日志
         </button>
         <button
+          v-if="updateStatus === 'idle' || updateStatus === 'error'"
           class="btn btn-primary"
           @click="handleInstallNow"
           :disabled="isDownloading"
-          :class="{ loading: isDownloading }"
         >
-          <span v-if="!isDownloading">立即更新</span>
-          <span v-else>更新中...</span>
+          {{ platformInfo.buttonText }}
         </button>
       </div>
     </div>
@@ -196,7 +365,8 @@ function handleViewRelease() {
   border-radius: var(--radius-lg);
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
   width: 90%;
-  max-width: 500px;
+  max-width: 480px;
+  max-height: 90vh;
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -233,9 +403,14 @@ function handleViewRelease() {
   transition: all var(--transition-fast);
 }
 
-.close-btn:hover {
+.close-btn:hover:not(:disabled) {
   background-color: var(--bg-hover);
   color: var(--text-primary);
+}
+
+.close-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .dialog-content {
@@ -246,11 +421,13 @@ function handleViewRelease() {
 
 .version-info {
   margin-bottom: var(--spacing-lg);
+  text-align: center;
 }
 
 .version-display {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: var(--spacing-md);
   margin-bottom: var(--spacing-sm);
 }
@@ -258,7 +435,7 @@ function handleViewRelease() {
 .current {
   font-size: var(--font-size-base);
   color: var(--text-secondary);
-  padding: 4px 8px;
+  padding: 4px 12px;
   background-color: var(--bg-secondary);
   border-radius: var(--radius-sm);
 }
@@ -266,13 +443,14 @@ function handleViewRelease() {
 .arrow {
   color: var(--text-secondary);
   font-weight: 600;
+  font-size: 18px;
 }
 
 .latest {
   font-size: var(--font-size-base);
   font-weight: 600;
   color: var(--color-accent);
-  padding: 4px 8px;
+  padding: 4px 12px;
   background-color: rgba(59, 130, 246, 0.1);
   border-radius: var(--radius-sm);
 }
@@ -282,35 +460,61 @@ function handleViewRelease() {
   color: var(--text-tertiary);
 }
 
-.release-notes {
-  margin-bottom: var(--spacing-lg);
+.platform-section {
+  padding: var(--spacing-md);
+  background-color: var(--bg-secondary);
+  border-radius: var(--radius-md);
 }
 
-.release-notes h3 {
-  font-size: var(--font-size-sm);
+.platform-header {
+  margin-bottom: var(--spacing-sm);
+}
+
+.platform-title {
   font-weight: 600;
-  color: var(--text-secondary);
-  margin: 0 0 var(--spacing-sm) 0;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+  color: var(--text-primary);
 }
 
-.release-notes p {
+.platform-description {
   margin: 0;
   font-size: var(--font-size-sm);
-  color: var(--text-primary);
+  color: var(--text-secondary);
   line-height: 1.5;
 }
 
-.download-progress {
-  margin-bottom: var(--spacing-lg);
+.download-section {
+  padding: var(--spacing-lg);
+  background-color: var(--bg-secondary);
+  border-radius: var(--radius-md);
+}
+
+.download-status {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-md);
+  font-size: var(--font-size-sm);
+  color: var(--text-primary);
+}
+
+.status-icon {
+  font-size: 18px;
+}
+
+.status-icon.spinning {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 
 .progress-bar {
   width: 100%;
-  height: 6px;
-  background-color: var(--bg-secondary);
-  border-radius: 3px;
+  height: 8px;
+  background-color: var(--bg-primary);
+  border-radius: 4px;
   overflow: hidden;
   margin-bottom: var(--spacing-sm);
 }
@@ -319,31 +523,92 @@ function handleViewRelease() {
   height: 100%;
   background-color: var(--color-accent);
   transition: width 0.3s ease;
+  border-radius: 4px;
 }
 
-.progress-text {
+.progress-info {
+  display: flex;
+  justify-content: space-between;
   font-size: var(--font-size-xs);
   color: var(--text-secondary);
-  text-align: right;
 }
 
-.platform-info {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-md);
-  padding: var(--spacing-md);
+.result-section {
+  padding: var(--spacing-lg);
   background-color: var(--bg-secondary);
   border-radius: var(--radius-md);
-  color: var(--text-primary);
-  font-size: var(--font-size-sm);
-  margin-bottom: var(--spacing-lg);
+  text-align: center;
 }
 
-.platform-info svg {
-  width: 20px;
-  height: 20px;
-  flex-shrink: 0;
+.result-icon {
+  font-size: 48px;
+  margin-bottom: var(--spacing-md);
+}
+
+.result-title {
+  font-size: var(--font-size-lg);
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: var(--spacing-sm);
+}
+
+.result-message {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  line-height: 1.6;
+  margin: 0;
+}
+
+.result-hint {
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+  margin-top: var(--spacing-md);
+}
+
+.result-section.success .result-icon {
+  color: var(--color-success, #22c55e);
+}
+
+.result-section.error .result-icon {
+  color: var(--color-danger, #ef4444);
+}
+
+.result-section.installing .result-icon {
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.macos-tip {
+  margin-top: var(--spacing-lg);
+  padding: var(--spacing-md);
+  background-color: rgba(59, 130, 246, 0.1);
+  border-radius: var(--radius-sm);
+  text-align: left;
+}
+
+.macos-tip strong {
+  display: block;
   color: var(--color-accent);
+  margin-bottom: var(--spacing-xs);
+  font-size: var(--font-size-sm);
+}
+
+.macos-tip p {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--text-primary);
+}
+
+.macos-tip code {
+  background-color: var(--bg-primary);
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  font-family: monospace;
+  font-size: var(--font-size-xs);
 }
 
 .dialog-footer {
@@ -392,9 +657,5 @@ function handleViewRelease() {
 
 .btn-secondary:not(:disabled):hover {
   background-color: var(--bg-hover);
-}
-
-.btn.loading {
-  position: relative;
 }
 </style>

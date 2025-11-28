@@ -58,9 +58,16 @@ try {
   fs.writeFileSync(tauriConfPath, JSON.stringify(tauriConf, null, 2) + '\n');
   console.log('✅ 已更新 src-tauri/tauri.conf.json');
 
-  // 6. Git commit
+  // 6. 更新 src-tauri/Cargo.toml
+  const cargoTomlPath = path.join(__dirname, '../src-tauri/Cargo.toml');
+  let cargoToml = fs.readFileSync(cargoTomlPath, 'utf8');
+  cargoToml = cargoToml.replace(/^version = ".*"/m, `version = "${newVersion}"`);
+  fs.writeFileSync(cargoTomlPath, cargoToml);
+  console.log('✅ 已更新 src-tauri/Cargo.toml');
+
+  // 7. Git commit
   try {
-    execSync('git add package.json src-tauri/tauri.conf.json', { stdio: 'inherit' });
+    execSync('git add package.json src-tauri/tauri.conf.json src-tauri/Cargo.toml', { stdio: 'inherit' });
     execSync(`git commit -m "chore: bump version to ${newVersion}"`, { stdio: 'inherit' });
     console.log(`✅ 已创建 Git commit`);
   } catch (error) {

@@ -60,16 +60,6 @@
     "targets": "all"
   },
   "identifier": "com.caogit.app",
-  "plugins": {
-    "updater": {
-      "active": true,
-      "dialog": false,
-      "endpoints": [
-        "https://raw.githubusercontent.com/wnluo/caogit/main/updates/latest.json"
-      ],
-      "pubkey": "dW3Z9kL2mN5P6qRsT7uVwXyZ0aB1cD3eF4gH5iJ6kL7mN8oP9qR0sT1uV2wX3yZ4aB5cD"
-    }
-  },
   "productName": "CaoGit",
   "version": "0.2.13"
 }

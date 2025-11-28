@@ -637,12 +637,388 @@ pub struct UpdateCheckResult {
     pub error: Option<String>,
 }
 
-/// 安装更新
+/// 安装更新（平台特定实现）
 #[tauri::command]
-pub async fn install_update() -> Result<(), String> {
-    // This command would be called to start the update installation
-    // The actual update installation is handled by tauri-plugin-updater
+pub async fn install_update(app: tauri::AppHandle, download_url: String, platform: String, version: String) -> Result<UpdateInstallResult, String> {
+    // 获取下载目录
+    let download_dir = get_download_directory()?;
+
+    match platform.as_str() {
+        "windows" => {
+            let filename = format!("CaoGit_{}_x64-setup.msi", version.trim_start_matches('v'));
+            let file_path = download_dir.join(&filename);
+
+            // 下载 MSI 文件
+            download_update_file(&app, &download_url, &file_path).await?;
+
+            // 运行 MSI 安装程序（/passive 静默安装，/norestart 不自动重启）
+            std::process::Command::new("msiexec")
+                .args(&["/i", file_path.to_str().unwrap(), "/passive", "/norestart"])
+                .spawn()
+                .map_err(|e| format!("启动安装程序失败: {}", e))?;
+
+            Ok(UpdateInstallResult {
+                status: "installing".to_string(),
+                file_path: file_path.to_string_lossy().to_string(),
+                message: "安装程序已启动，请按照提示完成安装".to_string(),
+            })
+        }
+        "macos" => {
+            let filename = format!("CaoGit_{}.dmg", version.trim_start_matches('v'));
+            let file_path = download_dir.join(&filename);
+
+            // 下载 DMG 文件
+            download_update_file(&app, &download_url, &file_path).await?;
+
+            // 生成修复脚本
+            let script_path = download_dir.join("安装CaoGit.command");
+            generate_macos_install_script(&script_path, &file_path)?;
+
+            // 打开下载目录
+            let _ = opener::open(&download_dir);
+
+            Ok(UpdateInstallResult {
+                status: "downloaded".to_string(),
+                file_path: file_path.to_string_lossy().to_string(),
+                message: format!(
+                    "下载完成！请双击运行 \"安装CaoGit.command\" 脚本完成安装。\n\n文件位置: {}",
+                    download_dir.display()
+                ),
+            })
+        }
+        "linux" => {
+            // Linux: 检测是 AppImage 还是 DEB
+            let filename = format!("caogit_{}_amd64.AppImage", version.trim_start_matches('v'));
+            let file_path = download_dir.join(&filename);
+
+            // 下载 AppImage 文件
+            download_update_file(&app, &download_url, &file_path).await?;
+
+            // 添加执行权限
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::PermissionsExt;
+                let mut perms = std::fs::metadata(&file_path)
+                    .map_err(|e| format!("获取文件权限失败: {}", e))?
+                    .permissions();
+                perms.set_mode(0o755);
+                std::fs::set_permissions(&file_path, perms)
+                    .map_err(|e| format!("设置执行权限失败: {}", e))?;
+            }
+
+            // 打开下载目录
+            let _ = opener::open(&download_dir);
+
+            Ok(UpdateInstallResult {
+                status: "downloaded".to_string(),
+                file_path: file_path.to_string_lossy().to_string(),
+                message: format!(
+                    "下载完成！AppImage 已添加执行权限，可直接运行。\n\n文件位置: {}",
+                    file_path.display()
+                ),
+            })
+        }
+        _ => {
+            Err(format!("不支持的平台: {}", platform))
+        }
+    }
+}
+
+#[derive(Debug, serde::Serialize)]
+pub struct UpdateInstallResult {
+    pub status: String,
+    pub file_path: String,
+    pub message: String,
+}
+
+/// 获取下载目录（用户的 Downloads 文件夹）
+fn get_download_directory() -> Result<std::path::PathBuf, String> {
+    #[cfg(target_os = "macos")]
+    {
+        if let Some(home) = home::home_dir() {
+            let downloads = home.join("Downloads");
+            if downloads.exists() {
+                return Ok(downloads);
+            }
+        }
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        if let Some(user_profile) = std::env::var_os("USERPROFILE") {
+            let downloads = std::path::PathBuf::from(user_profile).join("Downloads");
+            if downloads.exists() {
+                return Ok(downloads);
+            }
+        }
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        if let Some(home) = home::home_dir() {
+            let downloads = home.join("Downloads");
+            if downloads.exists() {
+                return Ok(downloads);
+            }
+            // 备选：使用 home 目录
+            return Ok(home);
+        }
+    }
+
+    // 备选：使用临时目录
+    Ok(std::env::temp_dir())
+}
+
+/// 下载更新文件（支持进度回调）
+async fn download_update_file(app: &tauri::AppHandle, url: &str, path: &std::path::Path) -> Result<(), String> {
+    use tauri::Emitter;
+
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(600)) // 10分钟超时
+        .build()
+        .map_err(|e| format!("创建 HTTP 客户端失败: {}", e))?;
+
+    let response = client.get(url)
+        .header("User-Agent", "CaoGit-Updater")
+        .send()
+        .await
+        .map_err(|e| format!("下载失败: {}", e))?;
+
+    if !response.status().is_success() {
+        return Err(format!("下载失败，HTTP 状态码: {}", response.status()));
+    }
+
+    let total_size = response.content_length().unwrap_or(0);
+    let mut downloaded: u64 = 0;
+
+    // 创建文件
+    let mut file = std::fs::File::create(path)
+        .map_err(|e| format!("创建文件失败: {}", e))?;
+
+    // 流式下载并报告进度
+    let mut stream = response.bytes_stream();
+    use futures_util::StreamExt;
+    use std::io::Write;
+
+    while let Some(chunk) = stream.next().await {
+        let chunk = chunk.map_err(|e| format!("读取数据失败: {}", e))?;
+        file.write_all(&chunk).map_err(|e| format!("写入文件失败: {}", e))?;
+
+        downloaded += chunk.len() as u64;
+
+        // 发送进度事件
+        if total_size > 0 {
+            let progress = (downloaded as f64 / total_size as f64 * 100.0) as u32;
+            let _ = app.emit("update-download-progress", DownloadProgress {
+                downloaded,
+                total: total_size,
+                progress,
+            });
+        }
+    }
+
     Ok(())
+}
+
+#[derive(Clone, serde::Serialize)]
+struct DownloadProgress {
+    downloaded: u64,
+    total: u64,
+    progress: u32,
+}
+
+/// 生成 macOS 安装脚本（自动挂载 DMG、复制应用、执行 xattr -cr）
+fn generate_macos_install_script(script_path: &std::path::Path, dmg_path: &std::path::Path) -> Result<(), String> {
+    let dmg_filename = dmg_path.file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or("CaoGit.dmg");
+
+    let script_content = format!(r#"#!/bin/bash
+
+# CaoGit 自动安装脚本
+# 此脚本会自动完成以下操作：
+# 1. 挂载 DMG 文件
+# 2. 复制 CaoGit.app 到 Applications 文件夹
+# 3. 移除隔离属性（解决"已损坏"问题）
+# 4. 卸载 DMG
+# 5. 启动 CaoGit
+
+echo ""
+echo "======================================"
+echo "   CaoGit 自动安装程序"
+echo "======================================"
+echo ""
+
+SCRIPT_DIR="$( cd "$( dirname "${{BASH_SOURCE[0]}}" )" && pwd )"
+DMG_PATH="$SCRIPT_DIR/{dmg_filename}"
+
+# 检查 DMG 文件是否存在
+if [ ! -f "$DMG_PATH" ]; then
+    echo "❌ 错误: 未找到 DMG 文件"
+    echo "   期望位置: $DMG_PATH"
+    echo ""
+    read -p "按回车键退出..."
+    exit 1
+fi
+
+echo "📦 正在挂载 DMG..."
+MOUNT_OUTPUT=$(hdiutil attach "$DMG_PATH" -nobrowse 2>&1)
+if [ $? -ne 0 ]; then
+    echo "❌ 挂载 DMG 失败"
+    echo "$MOUNT_OUTPUT"
+    read -p "按回车键退出..."
+    exit 1
+fi
+
+# 获取挂载点
+MOUNT_POINT=$(echo "$MOUNT_OUTPUT" | grep "/Volumes" | awk '{{print $NF}}')
+echo "✓ DMG 已挂载到: $MOUNT_POINT"
+
+# 查找 .app 文件
+APP_PATH=$(find "$MOUNT_POINT" -maxdepth 1 -name "*.app" -type d | head -n 1)
+if [ -z "$APP_PATH" ]; then
+    echo "❌ 在 DMG 中未找到应用程序"
+    hdiutil detach "$MOUNT_POINT" -quiet
+    read -p "按回车键退出..."
+    exit 1
+fi
+
+APP_NAME=$(basename "$APP_PATH")
+echo "✓ 找到应用: $APP_NAME"
+
+# 关闭正在运行的 CaoGit
+echo ""
+echo "🔄 正在关闭旧版本 CaoGit（如果正在运行）..."
+pkill -f "CaoGit" 2>/dev/null || true
+sleep 1
+
+# 复制到 Applications
+echo ""
+echo "📁 正在复制到 Applications 文件夹..."
+if [ -d "/Applications/$APP_NAME" ]; then
+    echo "   删除旧版本..."
+    rm -rf "/Applications/$APP_NAME"
+fi
+
+cp -R "$APP_PATH" "/Applications/"
+if [ $? -ne 0 ]; then
+    echo "❌ 复制失败，请检查权限"
+    hdiutil detach "$MOUNT_POINT" -quiet
+    read -p "按回车键退出..."
+    exit 1
+fi
+echo "✓ 复制完成"
+
+# 移除隔离属性
+echo ""
+echo "🔓 正在移除隔离属性..."
+xattr -cr "/Applications/$APP_NAME"
+if [ $? -eq 0 ]; then
+    echo "✓ 隔离属性已移除"
+else
+    echo "⚠️  移除隔离属性失败，您可能需要手动执行:"
+    echo "   xattr -cr /Applications/$APP_NAME"
+fi
+
+# 卸载 DMG
+echo ""
+echo "📤 正在卸载 DMG..."
+hdiutil detach "$MOUNT_POINT" -quiet
+echo "✓ DMG 已卸载"
+
+# 完成
+echo ""
+echo "======================================"
+echo "   ✅ 安装完成！"
+echo "======================================"
+echo ""
+
+# 询问是否启动
+read -p "是否立即启动 CaoGit？(y/n) " -n 1 -r
+echo ""
+if [[ $REPLY =~ ^[Yy]$ ]]; then
+    echo "🚀 正在启动 CaoGit..."
+    open "/Applications/$APP_NAME"
+fi
+
+echo ""
+echo "感谢使用 CaoGit！"
+echo ""
+"#, dmg_filename = dmg_filename);
+
+    std::fs::write(script_path, script_content)
+        .map_err(|e| format!("写入脚本文件失败: {}", e))?;
+
+    // 添加执行权限
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let mut perms = std::fs::metadata(script_path)
+            .map_err(|e| format!("获取文件权限失败: {}", e))?
+            .permissions();
+        perms.set_mode(0o755);
+        std::fs::set_permissions(script_path, perms)
+            .map_err(|e| format!("设置执行权限失败: {}", e))?;
+    }
+
+    Ok(())
+}
+
+/// 获取平台特定的下载 URL
+#[tauri::command]
+pub fn get_platform_download_url(base_url: String, version: String) -> Result<PlatformDownloadInfo, String> {
+    let version_without_v = version.trim_start_matches('v');
+    let download_base = base_url.replace("/tag/", "/download/");
+
+    #[cfg(target_os = "windows")]
+    {
+        Ok(PlatformDownloadInfo {
+            url: format!("{}/CaoGit_{}_x64-setup.msi", download_base, version_without_v),
+            filename: format!("CaoGit_{}_x64-setup.msi", version_without_v),
+            platform: "windows".to_string(),
+        })
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        // 检测 CPU 架构
+        let arch = if cfg!(target_arch = "aarch64") {
+            "aarch64"
+        } else {
+            "x64"
+        };
+
+        Ok(PlatformDownloadInfo {
+            url: format!("{}/CaoGit_{}_{}.dmg", download_base, version_without_v, arch),
+            filename: format!("CaoGit_{}_{}.dmg", version_without_v, arch),
+            platform: "macos".to_string(),
+        })
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        Ok(PlatformDownloadInfo {
+            url: format!("{}/caogit_{}_amd64.AppImage", download_base, version_without_v),
+            filename: format!("caogit_{}_amd64.AppImage", version_without_v),
+            platform: "linux".to_string(),
+        })
+    }
+
+    #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
+    {
+        Ok(PlatformDownloadInfo {
+            url: base_url,
+            filename: "unknown".to_string(),
+            platform: "unknown".to_string(),
+        })
+    }
+}
+
+#[derive(Debug, serde::Serialize)]
+pub struct PlatformDownloadInfo {
+    pub url: String,
+    pub filename: String,
+    pub platform: String,
 }
 
 /// 重启应用

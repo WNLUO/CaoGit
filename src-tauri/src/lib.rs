@@ -5,7 +5,6 @@ mod release_commands;
 
 use commands::*;
 use release_commands::*;
-use tauri_plugin_updater::UpdaterExt;
 use tauri::Emitter;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -14,7 +13,6 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_process::init())
-        .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(|app| {
             let handle = app.handle().clone();
 
@@ -24,18 +22,14 @@ pub fn run() {
 
                 let rt = tokio::runtime::Runtime::new().unwrap();
                 rt.block_on(async {
-                    if let Ok(updater) = handle.updater() {
-                        match updater.check().await {
-                            Ok(Some(_)) => {
-                                // 有新版本，通知前端
-                                let _ = handle.emit("update-available", ());
-                            }
-                            Ok(None) => {
-                                // 已是最新版本
-                            }
-                            Err(_) => {
-                                // 检查更新失败，静默处理
-                            }
+                    // 使用自定义的更新检查函数
+                    match check_for_updates(None).await {
+                        Ok(result) if result.has_update => {
+                            // 有新版本，通知前端
+                            let _ = handle.emit("update-available", ());
+                        }
+                        _ => {
+                            // 已是最新版本或检查失败，静默处理
                         }
                     }
                 });
@@ -91,6 +85,7 @@ pub fn run() {
             increment_version,
             generate_release_notes,
             install_update,
+            get_platform_download_url,
             restart_app,
             exit_app,
         ])
