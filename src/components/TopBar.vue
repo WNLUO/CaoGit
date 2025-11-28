@@ -21,6 +21,7 @@ const showBranchMenu = ref(false);
 const showPublishModal = ref(false);
 const showReleaseManager = ref(false);
 const hasRemote = ref(false);
+const isGitHubRepo = ref(false);
 
 // 进度条状态
 const showProgress = ref(false);
@@ -31,14 +32,30 @@ const progressMessage = ref('');
 async function checkRemote() {
   if (!repoStore.activeRepo) {
     hasRemote.value = false;
+    isGitHubRepo.value = false;
     return;
   }
 
   try {
     const response = await GitApi.getRemotes(repoStore.activeRepo.path);
     hasRemote.value = !!(response.success && response.data && response.data.length > 0);
+
+    // 检查是否是 GitHub 仓库
+    if (hasRemote.value && response.data) {
+      // 查找 origin 远程仓库的 URL
+      const origin = response.data.find((r: any) => r.name === 'origin');
+      if (origin && origin.url) {
+        const url = origin.url.toLowerCase();
+        isGitHubRepo.value = url.includes('github.com');
+      } else {
+        isGitHubRepo.value = false;
+      }
+    } else {
+      isGitHubRepo.value = false;
+    }
   } catch (error) {
     hasRemote.value = false;
+    isGitHubRepo.value = false;
   }
 }
 
@@ -316,7 +333,7 @@ async function createNewBranch() {
       <div class="separator"></div>
 
       <button
-        v-if="hasRemote"
+        v-if="hasRemote && isGitHubRepo"
         class="action-btn release-btn"
         title="发布管理 - 一键构建多平台版本"
         @click="openReleaseManager"

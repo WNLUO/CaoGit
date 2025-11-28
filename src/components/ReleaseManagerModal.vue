@@ -2,7 +2,7 @@
   <div v-if="show" class="modal-overlay" @click.self="close">
     <div class="modal-container">
       <div class="modal-header">
-        <h2>🚀 发布管理</h2>
+        <h2>发布管理</h2>
         <button class="close-btn" @click="close">×</button>
       </div>
 
@@ -47,7 +47,7 @@
 
               <button class="publish-btn" :disabled="publishing" @click="publishRelease">
                 <span v-if="publishing">发布中...</span>
-                <span v-else>🚀 发布到 GitHub</span>
+                <span v-else>发布到 GitHub</span>
               </button>
             </div>
           </div>
@@ -64,8 +64,20 @@
                 <div class="release-body">
                   <p>{{ release.name }}</p>
                   <div class="release-assets">
-                    <span>📦 {{ release.assets.length }} 个文件</span>
-                    <span>📥 {{ totalDownloads(release.assets) }} 次下载</span>
+                    <span>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+                      </svg>
+                      {{ release.assets.length }} 个文件
+                    </span>
+                    <span>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                        <polyline points="7 10 12 15 17 10"></polyline>
+                        <line x1="12" y1="15" x2="12" y2="3"></line>
+                      </svg>
+                      {{ totalDownloads(release.assets) }} 次下载
+                    </span>
                   </div>
                 </div>
                 <a :href="release.html_url" target="_blank" class="view-link">查看详情 →</a>
@@ -75,11 +87,41 @@
 
           <!-- Workflow Runs -->
           <div class="section">
-            <h3>构建状态</h3>
+            <div class="section-header">
+              <h3>构建状态</h3>
+              <button class="refresh-btn" @click="loadReleaseInfo" :disabled="loading" title="刷新构建状态">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" :class="{ spinning: loading }">
+                  <polyline points="23 4 23 10 17 10"></polyline>
+                  <polyline points="1 20 1 14 7 14"></polyline>
+                  <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+                </svg>
+              </button>
+            </div>
             <div class="workflows-list">
               <div v-for="run in releaseInfo.workflow_runs.slice(0, 5)" :key="run.id" class="workflow-item">
                 <div class="workflow-status" :class="getStatusClass(run.status, run.conclusion)">
-                  {{ getStatusIcon(run.status, run.conclusion) }}
+                  <!-- Success -->
+                  <svg v-if="run.conclusion === 'success'" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                    <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                  </svg>
+                  <!-- Failure -->
+                  <svg v-else-if="run.conclusion === 'failure'" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <line x1="15" y1="9" x2="9" y2="15"></line>
+                    <line x1="9" y1="9" x2="15" y2="15"></line>
+                  </svg>
+                  <!-- Running -->
+                  <svg v-else-if="run.status === 'in_progress'" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="spinning">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <path d="M12 6v6l4 2"></path>
+                  </svg>
+                  <!-- Pending/Other -->
+                  <svg v-else width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <line x1="12" y1="8" x2="12" y2="12"></line>
+                    <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                  </svg>
                 </div>
                 <div class="workflow-info">
                   <div class="workflow-name">{{ run.name }}</div>
@@ -242,13 +284,6 @@ function getStatusClass(status: string, conclusion: string | null) {
   return 'status-pending'
 }
 
-function getStatusIcon(status: string, conclusion: string | null) {
-  if (status === 'in_progress') return '⏳'
-  if (conclusion === 'success') return '✅'
-  if (conclusion === 'failure') return '❌'
-  return '⏸️'
-}
-
 function close() {
   emit('close')
 }
@@ -356,8 +391,46 @@ function close() {
 .section h3 {
   font-size: 16px;
   font-weight: 600;
-  margin-bottom: 16px;
+  margin: 0;
   color: var(--text-primary);
+}
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.refresh-btn {
+  padding: 6px;
+  border-radius: 6px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.refresh-btn:hover:not(:disabled) {
+  background: var(--bg-hover);
+  border-color: var(--accent-color);
+}
+
+.refresh-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.spinning {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 
 .publish-form {
@@ -493,6 +566,16 @@ textarea {
   font-size: 13px;
   color: var(--text-secondary);
   margin-top: 8px;
+}
+
+.release-assets span {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.release-assets svg {
+  flex-shrink: 0;
 }
 
 .workflow-item {
