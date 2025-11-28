@@ -148,6 +148,7 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
+import { openUrl } from '@tauri-apps/plugin-opener'
 
 const props = defineProps<{
   show: boolean
@@ -215,7 +216,7 @@ async function publishRelease() {
 
     // Open Actions page
     if (actionsUrl) {
-      window.open(actionsUrl as string, '_blank')
+      await openUrl(actionsUrl as string)
     }
 
     // Reload release info

@@ -4,6 +4,7 @@ import { GitApi } from '../services/gitApi';
 import { PlatformApi, type CreateRepoOptions } from '../services/platformApi';
 import { settingsStore } from '../stores/settingsStore';
 import { toastStore } from '../stores/toastStore';
+import { openUrl } from '@tauri-apps/plugin-opener';
 
 interface Props {
   isOpen: boolean;
@@ -228,9 +229,9 @@ async function handleAddRemote() {
   }
 }
 
-function openPlatformCreatePage(platform: typeof platforms[0]) {
+async function openPlatformCreatePage(platform: typeof platforms[0]) {
   // 在浏览器中打开创建仓库页面
-  window.open(platform.createUrl, '_blank');
+  await openUrl(platform.createUrl);
 }
 
 function selectPlatformTemplate(platformId: string) {
