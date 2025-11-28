@@ -90,15 +90,41 @@ pub async fn publish_new_release(
         return Err("仓库有未提交的更改，请先提交或暂存这些更改。".to_string());
     }
 
-    // 创建标签
+    // 第一步：更新 tauri.conf.json 和 package.json 中的版本号
+    update_tauri_config_version(&repo_path, &config.version)
+        .map_err(|e| format!("更新 tauri.conf.json 版本号失败: {}", e))?;
+
+    update_package_json_version(&repo_path, &config.version)
+        .map_err(|e| format!("更新 package.json 版本号失败: {}", e))?;
+
+    // 第二步：提交版本号更改
+    repo.stage_file("src-tauri/tauri.conf.json")
+        .map_err(|e| format!("暂存 tauri.conf.json 失败: {}", e))?;
+
+    repo.stage_file("package.json")
+        .map_err(|e| format!("暂存 package.json 失败: {}", e))?;
+
+    let commit_message = format!("chore: bump version to {}", config.version);
+    repo.commit(&commit_message)
+        .map_err(|e| format!("提交版本号更改失败: {}", e))?;
+
+    // 第三步：创建标签
     if config.create_tag {
         repo.create_tag(&config.version, Some(&config.message))
             .map_err(|e| format!("创建标签失败: {}", e))?;
     }
 
-    // 推送标签
+    // 第四步：推送提交和标签
     if config.push_tag {
-        // 推送标签到远程
+        // 获取当前分支名称
+        let current_branch = repo.get_current_branch()
+            .map_err(|e| format!("获取当前分支失败: {}", e))?;
+
+        // 先推送提交
+        repo.push("origin", &current_branch)
+            .map_err(|e| format!("推送提交失败: {}", e))?;
+
+        // 再推送标签到远程
         repo.push_tag("origin", &config.version)
             .map_err(|e| format!("推送标签失败: {}", e))?;
     }
@@ -112,6 +138,80 @@ pub async fn publish_new_release(
         "https://github.com/{}/{}/actions",
         owner, repo_name
     ))
+}
+
+/// 更新 tauri.conf.json 中的版本号
+fn update_tauri_config_version(repo_path: &str, version: &str) -> Result<(), String> {
+    use std::fs;
+    use std::path::Path;
+
+    // 移除版本号前缀 'v'（如果有）
+    let version_without_v = version.trim_start_matches('v');
+
+    // 构建 tauri.conf.json 路径
+    let config_path = Path::new(repo_path)
+        .join("src-tauri")
+        .join("tauri.conf.json");
+
+    // 读取文件内容
+    let content = fs::read_to_string(&config_path)
+        .map_err(|e| format!("读取 tauri.conf.json 失败: {}", e))?;
+
+    // 解析 JSON
+    let mut config: serde_json::Value = serde_json::from_str(&content)
+        .map_err(|e| format!("解析 tauri.conf.json 失败: {}", e))?;
+
+    // 更新版本号
+    if let Some(obj) = config.as_object_mut() {
+        obj.insert("version".to_string(), serde_json::Value::String(version_without_v.to_string()));
+    } else {
+        return Err("tauri.conf.json 格式无效".to_string());
+    }
+
+    // 写回文件（保持格式化）
+    let updated_content = serde_json::to_string_pretty(&config)
+        .map_err(|e| format!("序列化 JSON 失败: {}", e))?;
+
+    fs::write(&config_path, updated_content)
+        .map_err(|e| format!("写入 tauri.conf.json 失败: {}", e))?;
+
+    Ok(())
+}
+
+/// 更新 package.json 中的版本号
+fn update_package_json_version(repo_path: &str, version: &str) -> Result<(), String> {
+    use std::fs;
+    use std::path::Path;
+
+    // 移除版本号前缀 'v'（如果有）
+    let version_without_v = version.trim_start_matches('v');
+
+    // 构建 package.json 路径
+    let package_path = Path::new(repo_path).join("package.json");
+
+    // 读取文件内容
+    let content = fs::read_to_string(&package_path)
+        .map_err(|e| format!("读取 package.json 失败: {}", e))?;
+
+    // 解析 JSON
+    let mut package: serde_json::Value = serde_json::from_str(&content)
+        .map_err(|e| format!("解析 package.json 失败: {}", e))?;
+
+    // 更新版本号
+    if let Some(obj) = package.as_object_mut() {
+        obj.insert("version".to_string(), serde_json::Value::String(version_without_v.to_string()));
+    } else {
+        return Err("package.json 格式无效".to_string());
+    }
+
+    // 写回文件（保持格式化，使用 2 空格缩进）
+    let updated_content = serde_json::to_string_pretty(&package)
+        .map_err(|e| format!("序列化 JSON 失败: {}", e))?;
+
+    fs::write(&package_path, updated_content)
+        .map_err(|e| format!("写入 package.json 失败: {}", e))?;
+
+    Ok(())
 }
 
 /// 重新运行失败的构建

@@ -229,13 +229,16 @@ async function generateNotes() {
 async function publishRelease() {
   if (!props.repoPath || !newVersion.value) return
 
+  // 清理发布说明内容，避免 Git tag 创建失败
+  const cleanedMessage = cleanReleaseMessage(releaseMessage.value || `Release ${newVersion.value}`)
+
   publishing.value = true
   try {
     await invoke('publish_new_release', {
       repoPath: props.repoPath,
       config: {
         version: newVersion.value,
-        message: releaseMessage.value || `Release ${newVersion.value}`,
+        message: cleanedMessage,
         createTag: true,
         pushTag: true
       },
@@ -244,6 +247,9 @@ async function publishRelease() {
 
     emit('success', `发布成功！构建已触发`)
 
+    // 清空输入框，为下次发布做准备
+    releaseMessage.value = ''
+
     // Reload release info
     await loadReleaseInfo()
   } catch (e: any) {
@@ -251,6 +257,29 @@ async function publishRelease() {
   } finally {
     publishing.value = false
   }
+}
+
+function cleanReleaseMessage(message: string): string {
+  if (!message) return ''
+
+  // 1. 移除 Markdown 标题符号（只移除行首的 # 号）
+  let cleaned = message.replace(/^#+\s+/gm, '')
+
+  // 2. 移除反引号（代码标记）
+  cleaned = cleaned.replace(/`/g, '')
+
+  // 3. 移除多余的空行（连续超过2个换行符的情况）
+  cleaned = cleaned.replace(/\n{3,}/g, '\n\n')
+
+  // 4. 去除首尾空白
+  cleaned = cleaned.trim()
+
+  // 5. 限制长度，避免 Git tag message 过长（建议不超过 5000 字符）
+  if (cleaned.length > 5000) {
+    cleaned = cleaned.substring(0, 5000) + '...'
+  }
+
+  return cleaned
 }
 
 async function incrementVersion(part: string) {
