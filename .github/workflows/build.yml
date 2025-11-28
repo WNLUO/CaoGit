@@ -105,6 +105,13 @@ jobs:
             echo "Found DMG: $DMG_FILE"
             ARCH=$(echo "$DMG_FILE" | grep -o 'aarch64\|x86_64' || echo "aarch64")
             gh release upload ${{ github.ref_name }} "$DMG_FILE" --clobber
+
+            # 上传 macOS 修复脚本和使用说明
+            echo "Uploading macOS helper files..."
+            gh release upload ${{ github.ref_name }} \
+              "src-tauri/resources/fix-macos.command" \
+              "src-tauri/resources/使用说明.txt" \
+              --clobber
           else
             echo "No DMG file found"
             exit 1

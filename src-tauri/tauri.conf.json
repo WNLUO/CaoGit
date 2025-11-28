@@ -53,6 +53,10 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
+    "resources": [
+      "resources/fix-macos.command",
+      "resources/使用说明.txt"
+    ],
     "targets": "all"
   },
   "identifier": "com.caogit.app",
