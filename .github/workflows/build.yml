@@ -95,7 +95,15 @@ jobs:
         run: npm ci
 
       - name: Build Tauri app
-        run: npm run tauri:build
+        run: npm run tauri:build 2>&1 | tee build.log
+
+      - name: Check DMG build output
+        run: |
+          echo "=== Build log tail ==="
+          tail -50 build.log
+          echo ""
+          echo "=== Checking bundle_dmg.sh execution ==="
+          grep -i "background\|skip\|sandbox\|applescript" build.log || echo "No matches found"
 
       - name: Find and upload DMG
         shell: bash
