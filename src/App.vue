@@ -1,15 +1,15 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 
-import Sidebar from "./components/Sidebar.vue";
-import TopBar from "./components/TopBar.vue";
+import Sidebar from "./components/layout/Sidebar.vue";
+import TopBar from "./components/layout/TopBar.vue";
 import RepoMain from "./components/RepoMain.vue";
-import SettingsModal from "./components/SettingsModal.vue";
-import DebugErrorDialog from "./components/DebugErrorDialog.vue";
-import UpdateDialog from "./components/UpdateDialog.vue";
-import AddRepoModal from "./components/AddRepoModal.vue";
-import Resizer from "./components/Resizer.vue";
-import Toast from "./components/Toast.vue";
+import SettingsModal from "./components/modals/SettingsModal.vue";
+import DebugErrorDialog from "./components/modals/DebugErrorDialog.vue";
+import UpdateDialog from "./components/modals/UpdateDialog.vue";
+import AddRepoModal from "./components/modals/AddRepoModal.vue";
+import Resizer from "./components/layout/Resizer.vue";
+import Toast from "./components/common/Toast.vue";
 import { settingsStore } from "./stores/settingsStore";
 import { toastStore } from "./stores/toastStore";
 import type { Repository } from "./types";

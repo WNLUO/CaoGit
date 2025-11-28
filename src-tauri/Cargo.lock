@@ -4487,7 +4487,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "tauri-appgit-manager"
+name = "tauri-app-caogit"
 version = "0.1.0"
 dependencies = [
  "anyhow",

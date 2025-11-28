@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, watch } from 'vue';
 import type { Repository } from '../types';
-import ChangesView from './ChangesView.vue';
-import HistoryView from './HistoryView.vue';
-import DiffView from './DiffView.vue';
-import Resizer from './Resizer.vue';
-import CommitFilter from './CommitFilter.vue';
-import type { FilterOptions } from './CommitFilter.vue';
+import ChangesView from './views/ChangesView.vue';
+import HistoryView from './views/HistoryView.vue';
+import DiffView from './views/DiffView.vue';
+import Resizer from './layout/Resizer.vue';
+import CommitFilter from './common/CommitFilter.vue';
+import type { FilterOptions } from './common/CommitFilter.vue';
 import { settingsStore } from '../stores/settingsStore';
 import { repoStore } from '../stores/repoStore';
 
