@@ -1,30 +1,10 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "GitManager",
-  "version": "0.1.0",
-  "identifier": "com.gitmanager.app",
-  "build": {
-    "beforeDevCommand": "npm run dev",
-    "devUrl": "http://localhost:1420",
-    "beforeBuildCommand": "npm run build",
-    "frontendDist": "../dist"
-  },
   "app": {
-    "windows": [
-      {
-        "title": "Git管理器",
-        "width": 1200,
-        "height": 800,
-        "decorations": true,
-        "transparent": false
-      }
-    ],
     "security": {
-      "csp": null,
       "capabilities": [
         {
           "identifier": "main-capability",
-          "windows": ["main"],
           "permissions": [
             "core:window:allow-start-dragging",
             "core:default",
@@ -33,37 +13,59 @@
             "dialog:allow-confirm",
             "dialog:default",
             {
-              "identifier": "opener:allow-open-url",
               "allow": [
                 {
                   "url": "https://github.com/**"
                 }
-              ]
+              ],
+              "identifier": "opener:allow-open-url"
             }
+          ],
+          "windows": [
+            "main"
           ]
         }
-      ]
-    }
-  },
-  "plugins": {
-    "updater": {
-      "active": true,
-      "endpoints": [
-        "https://raw.githubusercontent.com/wnluo/caogit/main/updates/latest.json"
       ],
-      "dialog": false,
-      "pubkey": "dW3Z9kL2mN5P6qRsT7uVwXyZ0aB1cD3eF4gH5iJ6kL7mN8oP9qR0sT1uV2wX3yZ4aB5cD"
-    }
+      "csp": null
+    },
+    "windows": [
+      {
+        "decorations": true,
+        "height": 800,
+        "title": "Git管理器",
+        "transparent": false,
+        "width": 1200
+      }
+    ]
+  },
+  "build": {
+    "beforeBuildCommand": "npm run build",
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://localhost:1420",
+    "frontendDist": "../dist"
   },
   "bundle": {
     "active": true,
-    "targets": "all",
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
-  }
+    ],
+    "targets": "all"
+  },
+  "identifier": "com.gitmanager.app",
+  "plugins": {
+    "updater": {
+      "active": true,
+      "dialog": false,
+      "endpoints": [
+        "https://raw.githubusercontent.com/wnluo/caogit/main/updates/latest.json"
+      ],
+      "pubkey": "dW3Z9kL2mN5P6qRsT7uVwXyZ0aB1cD3eF4gH5iJ6kL7mN8oP9qR0sT1uV2wX3yZ4aB5cD"
+    }
+  },
+  "productName": "GitManager",
+  "version": "0.2.7"
 }

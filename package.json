@@ -1,19 +1,4 @@
 {
-  "name": "git-manager",
-  "private": true,
-  "version": "0.1.0",
-  "type": "module",
-  "scripts": {
-    "dev": "vite",
-    "build": "vue-tsc --noEmit && vite build",
-    "preview": "vite preview",
-    "tauri": "tauri",
-    "tauri:dev": "tauri dev",
-    "tauri:build": "tauri build",
-    "bump:patch": "node scripts/bump-version.js patch",
-    "bump:minor": "node scripts/bump-version.js minor",
-    "bump:major": "node scripts/bump-version.js major"
-  },
   "dependencies": {
     "@tauri-apps/api": "^2",
     "@tauri-apps/plugin-dialog": "^2.4.2",
@@ -27,5 +12,20 @@
     "typescript": "~5.6.2",
     "vite": "^6.0.3",
     "vue-tsc": "^2.1.10"
-  }
+  },
+  "name": "git-manager",
+  "private": true,
+  "scripts": {
+    "build": "vue-tsc --noEmit && vite build",
+    "bump:major": "node scripts/bump-version.js major",
+    "bump:minor": "node scripts/bump-version.js minor",
+    "bump:patch": "node scripts/bump-version.js patch",
+    "dev": "vite",
+    "preview": "vite preview",
+    "tauri": "tauri",
+    "tauri:build": "tauri build",
+    "tauri:dev": "tauri dev"
+  },
+  "type": "module",
+  "version": "0.2.7"
 }
