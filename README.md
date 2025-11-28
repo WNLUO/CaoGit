@@ -1,35 +1,115 @@
 # CaoGit
 
-一个功能强大的跨平台 Git 图形化客户端，基于 Tauri 2.0 + Vue 3 + TypeScript 构建。
+<p align="center">
+  <img src="public/icon.png" alt="CaoGit Logo" width="128" height="128">
+</p>
+
+<p align="center">
+  <strong>一个功能强大的跨平台 Git 图形化客户端</strong>
+</p>
+
+<p align="center">
+  基于 Tauri 2.0 + Vue 3 + TypeScript + Rust 构建
+</p>
+
+<p align="center">
+  <a href="https://github.com/WNLUO/CaoGit/releases"><img src="https://img.shields.io/github/v/release/WNLUO/CaoGit" alt="Release"></a>
+  <a href="https://github.com/WNLUO/CaoGit/blob/main/LICENSE"><img src="https://img.shields.io/github/license/WNLUO/CaoGit" alt="License"></a>
+  <a href="https://github.com/WNLUO/CaoGit/issues"><img src="https://img.shields.io/github/issues/WNLUO/CaoGit" alt="Issues"></a>
+</p>
+
+---
 
 ## 特性
 
 ### 核心功能
-- **多仓库管理** - 同时管理多个 Git 仓库,快速切换
+- **多仓库管理** - 同时管理多个 Git 仓库，快速切换
 - **完整分支管理** - 创建、切换、删除、合并分支
-- **智能提交** - 可视化 stage/unstage, 支持 AI 生成提交信息
-- **远程同步** - Push、Pull、Fetch 操作,完整远程仓库支持
-- **提交历史** - 美观的提交历史展示,支持搜索和过滤
+- **智能提交** - 可视化 stage/unstage，支持 AI 生成提交信息
+- **远程同步** - Push、Pull、Fetch 操作，完整远程仓库支持
+- **提交历史** - 美观的提交历史展示，支持搜索和过滤
 
 ### 可视化
 - **分支可视化图** - Canvas 绘制的交互式分支图
-- **高级 Diff 查看器** - 并排/内联两种模式,语法高亮
+- **高级 Diff 查看器** - 并排/内联两种模式，语法高亮
 - **实时状态** - 工作区和暂存区实时状态展示
 
 ### 高级操作
 - **Tag 管理** - 创建、查看、删除标签
 - **Stash 功能** - 保存和恢复工作状态
-- **Merge** - 智能合并,自动检测冲突
+- **Merge** - 智能合并，自动检测冲突
 - **Clone** - 克隆远程仓库
 - **AI 提交消息** - 基于 OpenAI API 分析代码变更自动生成提交信息
 - **冲突解决工具** - 三栏可视化冲突编辑器
 - **Cherry-pick** - 精选提交功能
 - **Git Blame** - 代码行责任追踪
 - **主题定制** - 暗黑/明亮/自动主题切换
+- **国际化** - 支持中文和英文界面
+- **快捷键** - 支持常用操作快捷键
 
-### 未来计划
-- **性能优化** - 大仓库虚拟滚动优化,增量加载
-- **Rebase** - 交互式变基
+## 下载和安装
+
+### 📥 下载最新版本
+
+前往 [Releases 页面](https://github.com/WNLUO/CaoGit/releases/latest) 下载适合你操作系统的安装包：
+
+- **macOS**: `CaoGit_x.x.x_aarch64.dmg` (Apple Silicon) 或 `CaoGit_x.x.x_x64.dmg` (Intel)
+- **Windows**: `CaoGit_x.x.x_x64_en-US.msi`
+- **Linux**: `caogit_x.x.x_amd64.AppImage` 或 `caogit_x.x.x_amd64.deb`
+
+### 🍎 macOS 用户重要提示
+
+由于应用未经过 Apple 公证，首次打开时可能会遇到 **"CaoGit 已损坏，无法打开"** 的提示。
+
+**解决方法**：
+
+**方法 1：使用终端移除隔离属性（推荐）**
+```bash
+# 打开终端，执行以下命令（将路径替换为实际安装路径）
+xattr -cr /Applications/CaoGit.app
+```
+
+**方法 2：通过系统设置打开**
+1. 右键点击 CaoGit 应用
+2. 选择"打开"（而不是双击）
+3. 在弹出的警告对话框中点击"打开"
+4. 之后就可以正常双击打开了
+
+**方法 3：在系统设置中允许**
+1. 尝试打开应用（会弹出警告）
+2. 打开"系统设置" → "隐私与安全性"
+3. 找到"仍要打开"按钮并点击
+4. 输入密码确认
+
+### 🪟 Windows 用户提示
+
+首次安装时可能会出现 SmartScreen 警告，点击"更多信息" → "仍要运行"即可。
+
+### 🐧 Linux 用户提示
+
+**AppImage 用户**：
+```bash
+# 添加执行权限
+chmod +x caogit_*.AppImage
+
+# 运行
+./caogit_*.AppImage
+```
+
+**DEB 包用户**：
+```bash
+sudo dpkg -i caogit_*.deb
+```
+
+## 截图
+
+| 主界面 | Diff 查看器 |
+|:---:|:---:|
+| ![主界面](docs/screenshots/main.png) | ![Diff](docs/screenshots/diff.png) |
+
+| 分支图 | 设置 |
+|:---:|:---:|
+| ![分支图](docs/screenshots/branch-graph.png) | ![设置](docs/screenshots/settings.png) |
 
 ## 快速开始
 
@@ -57,7 +137,7 @@ npm install
 npm run tauri dev
 ```
 
-首次运行会下载 Rust 依赖,可能需要几分钟。
+首次运行会下载 Rust 依赖，可能需要几分钟。
 
 ### 构建
 
@@ -67,6 +147,16 @@ npm run tauri build
 ```
 
 构建产物位于 `src-tauri/target/release/bundle/`
+
+### 测试
+
+```bash
+# 运行测试
+npm run test
+
+# 运行测试并生成覆盖率报告
+npm run test:coverage
+```
 
 ## 使用指南
 
@@ -83,23 +173,17 @@ npm run tauri build
 3. 输入提交信息
 4. 点击"提交"按钮
 
-### 切换分支
+### 快捷键
 
-1. 点击顶栏的当前分支名称
-2. 在下拉菜单中选择目标分支
-3. 或点击"新建"创建新分支
-
-### 推送代码
-
-1. 确保有未推送的提交
-2. 点击顶栏的 "Push" 按钮
-3. 等待推送完成
-
-### 查看 Diff
-
-1. 在文件列表中点击文件
-2. 右侧会显示详细差异
-3. 可切换"内联"或"并排"模式
+| 快捷键 | 功能 |
+|--------|------|
+| `Ctrl+S` | 保存/提交 |
+| `Ctrl+R` | 刷新 |
+| `Ctrl+Shift+P` | 推送 |
+| `Ctrl+F` | 搜索 |
+| `Ctrl+B` | 切换分支 |
+| `Ctrl+,` | 打开设置 |
+| `Escape` | 关闭对话框 |
 
 ## 技术架构
 
@@ -115,91 +199,80 @@ npm run tauri build
 - [Vue 3.5](https://vuejs.org/) - 渐进式框架
 - [TypeScript 5.6](https://www.typescriptlang.org/) - 类型安全
 - [Vite 6.0](https://vitejs.dev/) - 构建工具
+- [Vitest](https://vitest.dev/) - 单元测试
 
 ### 目录结构
 
 ```
-├── src/                    # Vue 前端代码
-│   ├── components/         # Vue 组件
-│   │   ├── Sidebar.vue    # 仓库侧边栏
-│   │   ├── TopBar.vue     # 顶部操作栏
-│   │   ├── ChangesView.vue # 文件变更视图
-│   │   ├── HistoryView.vue # 提交历史
-│   │   ├── EnhancedDiffView.vue # Diff 查看器
-│   │   ├── BranchGraph.vue # 分支图
-│   │   ├── BlameView.vue  # Git Blame 视图
-│   │   ├── ConflictResolver.vue # 冲突解决器
-│   │   └── ...            # 更多组件
-│   ├── services/
-│   │   └── gitApi.ts      # API 调用服务
-│   ├── stores/
-│   │   └── repoStore.ts   # 状态管理
-│   ├── types.ts           # TypeScript 类型
-│   └── main.ts            # 入口文件
+├── src/                        # Vue 前端代码
+│   ├── components/             # Vue 组件
+│   │   ├── common/            # 通用组件
+│   │   ├── layout/            # 布局组件
+│   │   ├── modals/            # 弹窗组件
+│   │   └── views/             # 视图组件
+│   ├── i18n/                  # 国际化
+│   │   └── locales/           # 语言包
+│   ├── services/              # 服务层
+│   │   ├── gitApi.ts          # Git API
+│   │   ├── errorHandler.ts    # 错误处理
+│   │   └── keyboardShortcuts.ts # 快捷键
+│   ├── stores/                # 状态管理
+│   ├── types/                 # TypeScript 类型
+│   └── main.ts                # 入口文件
 │
-├── src-tauri/              # Rust 后端代码
+├── src-tauri/                  # Rust 后端代码
 │   ├── src/
-│   │   ├── git_ops.rs     # Git 核心操作
-│   │   ├── commands.rs    # Tauri 命令
-│   │   ├── repo_cache.rs  # 仓库缓存
-│   │   └── lib.rs         # 主入口
-│   └── Cargo.toml         # Rust 依赖
+│   │   ├── git_ops/           # Git 操作模块
+│   │   │   ├── mod.rs
+│   │   │   ├── types.rs       # 类型定义
+│   │   │   ├── repository.rs  # 仓库操作
+│   │   │   ├── branch.rs      # 分支操作
+│   │   │   ├── remote.rs      # 远程操作
+│   │   │   ├── diff.rs        # Diff 操作
+│   │   │   ├── stash.rs       # Stash 操作
+│   │   │   ├── tag.rs         # Tag 操作
+│   │   │   ├── merge.rs       # 合并操作
+│   │   │   └── blame.rs       # Blame 操作
+│   │   ├── commands/          # Tauri 命令模块
+│   │   │   ├── mod.rs
+│   │   │   ├── repository.rs
+│   │   │   ├── branch.rs
+│   │   │   └── ...
+│   │   └── lib.rs             # 主入口
+│   └── Cargo.toml             # Rust 依赖
 │
-└── README.md              # 本文件
+├── tests/                      # 测试文件
+│   └── unit/                  # 单元测试
+│
+└── README.md                   # 本文件
 ```
-
-### 核心实现
-
-**Git 操作层** (`git_ops.rs`)
-- 封装 git2-rs 库
-- 提供高层 API 接口
-- 处理认证和代理
-
-**命令层** (`commands.rs`)
-- Tauri IPC 接口
-- 参数验证
-- 错误处理
-
-**前端 API** (`gitApi.ts`)
-- 调用 Tauri 命令
-- 类型安全封装
-- Promise 化接口
-
-**状态管理** (`repoStore.ts`)
-- 响应式仓库状态
-- 自动刷新机制
-- 错误处理
 
 ## 与其他工具对比
 
 | 功能 | CaoGit | GitKraken | GitHub Desktop | SourceTree |
-|------|-------------|-----------|----------------|------------|
-| 分支可视化 | 是 | 是 | 否 | 是 |
-| 并排 Diff | 是 | 是 | 部分 | 是 |
-| 多仓库管理 | 是 | 是 | 否 | 是 |
-| 免费 | 是 | 部分收费 | 是 | 是 |
-| 跨平台 | 是 | 是 | 是 | macOS/Win |
-| AI 功能 | 是 | 是 | 否 | 否 |
+|------|--------|-----------|----------------|------------|
+| 分支可视化 | ✅ | ✅ | ❌ | ✅ |
+| 并排 Diff | ✅ | ✅ | 部分 | ✅ |
+| 多仓库管理 | ✅ | ✅ | ❌ | ✅ |
+| 免费 | ✅ | 部分收费 | ✅ | ✅ |
+| 跨平台 | ✅ | ✅ | ✅ | macOS/Win |
+| AI 功能 | ✅ | ✅ | ❌ | ❌ |
 | 性能 | 轻量 | 资源占用高 | 中等 | 慢 |
-| 本土化 | 中文 | 是 | 是 | 是 |
+| 国际化 | ✅ | ✅ | ✅ | ✅ |
 
 ## 贡献
 
-欢迎贡献代码、报告 Bug 或提出新功能建议!
+欢迎贡献代码、报告 Bug 或提出新功能建议！
 
-### 开发流程
+请查看 [CONTRIBUTING.md](CONTRIBUTING.md) 了解详细的贡献指南。
+
+### 快速贡献流程
 
 1. Fork 项目
 2. 创建特性分支 (`git checkout -b feature/AmazingFeature`)
 3. 提交更改 (`git commit -m 'Add some AmazingFeature'`)
 4. 推送到分支 (`git push origin feature/AmazingFeature`)
 5. 提交 Pull Request
-
-### 代码规范
-
-- Rust: `cargo fmt` + `cargo clippy`
-- TypeScript/Vue: ESLint + Prettier
-- 提交信息遵循 [Conventional Commits](https://www.conventionalcommits.org/)
 
 ## 许可证
 
@@ -219,4 +292,4 @@ npm run tauri build
 
 ---
 
-如果这个项目对你有帮助,请给个 Star!
+如果这个项目对你有帮助，请给个 ⭐ Star！

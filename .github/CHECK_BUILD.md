@@ -51,8 +51,8 @@
 - `Git管理器_0.1.0_x64_en-US.msi` (Windows 安装程序)
 
 ### Linux
-- `git-manager_0.1.0_amd64.AppImage` (通用 Linux)
-- `git-manager_0.1.0_amd64.deb` (Debian/Ubuntu)
+- `caogit_0.1.0_amd64.AppImage` (通用 Linux)
+- `caogit_0.1.0_amd64.deb` (Debian/Ubuntu)
 
 ---
 

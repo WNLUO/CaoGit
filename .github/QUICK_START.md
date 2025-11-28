@@ -35,7 +35,7 @@ git push origin v0.2.0
 - 下载安装包：
   - 🍎 **macOS**: `Git管理器_*.dmg` （Intel）和 `aarch64` 版本
   - 🪟 **Windows**: `Git管理器_*.msi`
-  - 🐧 **Linux**: `git-manager_*.AppImage` 或 `.deb`
+  - 🐧 **Linux**: `caogit_*.AppImage` 或 `.deb`
 
 ### 选项 B：从 Actions 页面
 - 点击完成的工作流
@@ -64,7 +64,7 @@ git tag -a v1.0.0 -m "Stable release"       # 正式版本
 - ❌ 代码有编译错误
 
 ### 找不到下载链接？
-- Releases 页面在：`github.com/你的用户名/git-manager/releases`
+- Releases 页面在：`github.com/你的用户名/caogit/releases`
 - 或点击仓库右侧的 "Releases" 按钮
 
 ### 如何手动触发构建？

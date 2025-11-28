@@ -48,9 +48,9 @@ release 页面更新，显示所有安装包 ✅
 - `Git管理器_v0.2.0_x64.exe` (便携版)
 
 **Linux**:
-- `git-manager_v0.2.0_amd64.AppImage` (通用 Linux)
-- `git-manager_v0.2.0_amd64.deb` (Debian 包)
-- `git-manager_v0.2.0_amd64.tar.gz` (压缩包)
+- `caogit_v0.2.0_amd64.AppImage` (通用 Linux)
+- `caogit_v0.2.0_amd64.deb` (Debian 包)
+- `caogit_v0.2.0_amd64.tar.gz` (压缩包)
 
 ## 常见问题
 

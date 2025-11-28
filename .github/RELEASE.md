@@ -118,9 +118,9 @@ https://github.com/WNLUO/CaoGit/actions
 https://github.com/WNLUO/CaoGit/releases
 
 完成后可以下载：
-- 🍎 macOS: `GitManager_x.x.x_aarch64.dmg`
-- 🪟 Windows: `GitManager_x.x.x_x64_en-US.msi`
-- 🐧 Linux: `git-manager_x.x.x_amd64.AppImage`
+- 🍎 macOS: `CaoGit_x.x.x_aarch64.dmg`
+- 🪟 Windows: `CaoGit_x.x.x_x64_en-US.msi`
+- 🐧 Linux: `caogit_x.x.x_amd64.AppImage`
 
 ---
 
