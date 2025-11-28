@@ -6,6 +6,7 @@ import TopBar from "./components/TopBar.vue";
 import RepoMain from "./components/RepoMain.vue";
 import SettingsModal from "./components/SettingsModal.vue";
 import DebugErrorDialog from "./components/DebugErrorDialog.vue";
+import UpdateDialog from "./components/UpdateDialog.vue";
 import AddRepoModal from "./components/AddRepoModal.vue";
 import Resizer from "./components/Resizer.vue";
 import Toast from "./components/Toast.vue";
@@ -118,6 +119,8 @@ function handleSidebarResize(delta: number) {
     />
 
     <DebugErrorDialog />
+
+    <UpdateDialog />
 
     <!-- Toast Notifications -->
     <Toast

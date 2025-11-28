@@ -7,6 +7,7 @@ import PublishModal from './PublishModal.vue';
 import ThemeToggle from './ThemeToggle.vue';
 import ProgressBar from './ProgressBar.vue';
 import ReleaseManagerModal from './ReleaseManagerModal.vue';
+import VersionDisplay from './VersionDisplay.vue';
 import { settingsStore } from '../stores/settingsStore';
 
 const emit = defineEmits<{
@@ -283,6 +284,9 @@ async function createNewBranch() {
       <!-- Theme Toggle -->
       <ThemeToggle />
 
+      <!-- Version Display -->
+      <VersionDisplay />
+
       <div class="separator"></div>
 
       <button
@@ -386,7 +390,8 @@ async function createNewBranch() {
   position: relative;
   flex-shrink: 0;
   min-width: 0;
-  overflow: hidden;
+  overflow: visible;
+  z-index: 100;
 }
 
 /* Draggable region covering the entire top bar */

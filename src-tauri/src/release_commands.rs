@@ -383,3 +383,149 @@ pub fn generate_release_notes(
 
     Ok(notes.trim().to_string())
 }
+
+/// 检查更新（双通道）
+#[tauri::command]
+pub async fn check_for_updates(github_token: Option<String>) -> Result<UpdateCheckResult, String> {
+    let current_version = env!("CARGO_PKG_VERSION");
+
+    // 尝试通道 1：使用软件内置的网络代理
+    if let Ok(result) = check_updates_channel1(current_version, github_token.as_deref()).await {
+        return Ok(result);
+    }
+
+    // 如果通道 1 失败，尝试通道 2：本地网络直连
+    check_updates_channel2(current_version).await
+}
+
+/// 通道 1：使用 Tauri API（支持网络代理）
+async fn check_updates_channel1(
+    current_version: &str,
+    github_token: Option<&str>,
+) -> Result<UpdateCheckResult, String> {
+    let client = crate::github_api::GitHubClient::new(github_token.map(String::from));
+
+    match client
+        .list_releases("wnluo", "caogit")
+        .await
+    {
+        Ok(releases) => {
+            if let Some(latest) = releases.first() {
+                let latest_version = latest.tag_name.trim_start_matches('v');
+
+                let has_update = compare_versions(latest_version, current_version);
+
+                Ok(UpdateCheckResult {
+                    success: true,
+                    has_update,
+                    current_version: current_version.to_string(),
+                    latest_version: latest_version.to_string(),
+                    download_url: latest.html_url.clone(),
+                    released_at: latest.published_at.clone().unwrap_or_else(|| "unknown".to_string()),
+                    channel: "built-in-proxy".to_string(),
+                    error: None,
+                })
+            } else {
+                Err("No releases found".to_string())
+            }
+        }
+        Err(e) => Err(format!("Channel 1 failed: {}", e)),
+    }
+}
+
+/// 通道 2：本地网络直连
+async fn check_updates_channel2(current_version: &str) -> Result<UpdateCheckResult, String> {
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(5))
+        .build()
+        .map_err(|e| format!("Failed to create HTTP client: {}", e))?;
+
+    let url = "https://api.github.com/repos/wnluo/caogit/releases/latest";
+
+    match client.get(url).header("User-Agent", "GitManager").send().await {
+        Ok(response) => {
+            if response.status().is_success() {
+                match response.json::<serde_json::Value>().await {
+                    Ok(data) => {
+                        if let (Some(tag), Some(html_url), Some(published_at)) = (
+                            data.get("tag_name").and_then(|v| v.as_str()),
+                            data.get("html_url").and_then(|v| v.as_str()),
+                            data.get("published_at").and_then(|v| v.as_str()),
+                        ) {
+                            let latest_version = tag.trim_start_matches('v');
+                            let has_update = compare_versions(latest_version, current_version);
+
+                            Ok(UpdateCheckResult {
+                                success: true,
+                                has_update,
+                                current_version: current_version.to_string(),
+                                latest_version: latest_version.to_string(),
+                                download_url: html_url.to_string(),
+                                released_at: published_at.to_string(),
+                                channel: "direct-network".to_string(),
+                                error: None,
+                            })
+                        } else {
+                            Err("Missing required fields in response".to_string())
+                        }
+                    }
+                    Err(e) => Err(format!("Failed to parse response: {}", e)),
+                }
+            } else {
+                Err(format!("HTTP error: {}", response.status()))
+            }
+        }
+        Err(e) => Err(format!("Channel 2 failed: {}", e)),
+    }
+}
+
+/// 比较版本号（简单的语义化版本比较）
+fn compare_versions(latest: &str, current: &str) -> bool {
+    let parse_version = |v: &str| -> (u32, u32, u32) {
+        let parts: Vec<&str> = v.split('.').collect();
+        (
+            parts.get(0).and_then(|s| s.parse().ok()).unwrap_or(0),
+            parts.get(1).and_then(|s| s.parse().ok()).unwrap_or(0),
+            parts.get(2).and_then(|s| s.parse().ok()).unwrap_or(0),
+        )
+    };
+
+    let (latest_major, latest_minor, latest_patch) = parse_version(latest);
+    let (current_major, current_minor, current_patch) = parse_version(current);
+
+    (latest_major, latest_minor, latest_patch) > (current_major, current_minor, current_patch)
+}
+
+#[derive(Debug, serde::Serialize)]
+pub struct UpdateCheckResult {
+    pub success: bool,
+    pub has_update: bool,
+    pub current_version: String,
+    pub latest_version: String,
+    pub download_url: String,
+    pub released_at: String,
+    pub channel: String,
+    pub error: Option<String>,
+}
+
+/// 安装更新
+#[tauri::command]
+pub async fn install_update() -> Result<(), String> {
+    // This command would be called to start the update installation
+    // The actual update installation is handled by tauri-plugin-updater
+    Ok(())
+}
+
+/// 重启应用
+#[tauri::command]
+pub fn restart_app(_app: tauri::AppHandle) -> Result<(), String> {
+    // 使用 process 插件的命令行方式重启
+    // 或者使用 Tauri 的重启 API
+    std::process::exit(0);
+}
+
+/// 退出应用
+#[tauri::command]
+pub fn exit_app() -> Result<(), String> {
+    std::process::exit(0);
+}

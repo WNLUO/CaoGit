@@ -116,6 +116,7 @@ li.danger:hover {
   font-size: 14px;
   width: 16px;
   text-align: center;
+  flex-shrink: 0;
 }
 
 .menu-label {

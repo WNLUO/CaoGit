@@ -241,10 +241,9 @@ async function generateAICommitMessage() {
           if (response.data.hunks && response.data.hunks.length > 0) {
             for (const hunk of response.data.hunks) {
               fileDiff += `${hunk.header}\n`;
-              // 只包含变更行，限制长度
+              // 包含所有变更行
               const changes = hunk.lines
                 .filter((line: any) => line.origin === '+' || line.origin === '-')
-                .slice(0, 20) // 限制每个 hunk 最多 20 行
                 .map((line: any) => `${line.origin}${line.content}`)
                 .join('\n');
               fileDiff += changes + '\n';
@@ -258,7 +257,7 @@ async function generateAICommitMessage() {
       }
     }
 
-    const diffContext = diffs.join('\n---\n').slice(0, 8000); // 限制总长度
+    const diffContext = diffs.join('\n---\n').slice(0, 16000); // 增加内容长度限制
 
     // 通过 Rust 后端调用 AI API
     const response = await GitApi.callAIApi(
@@ -272,7 +271,7 @@ async function generateAICommitMessage() {
         },
         {
           role: 'user',
-          content: `请基于以下代码变更生成简洁的提交信息（${settings.language}）：\n\n${diffContext}`
+          content: `请基于以下代码变更，生成一条简洁清晰的 Git 提交信息。语言：${settings.language}\n\n代码变更：\n${diffContext}`
         }
       ],
       settings.temperature,

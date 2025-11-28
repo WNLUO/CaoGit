@@ -83,17 +83,14 @@ const contextMenuItems = computed(() => {
   return [
     {
       label: hasMultipleSelected ? `Cherry-pick ${selectedCommits.value.size} 提交` : 'Cherry-pick 此提交',
-      icon: '🍒',
       action: () => cherryPickCommits()
     },
     {
       label: '复制提交哈希',
-      icon: '📋',
       action: () => copyCommitHash(contextMenu.value.commit!.hash)
     },
     {
       label: '复制提交信息',
-      icon: '📝',
       action: () => copyCommitMessage(contextMenu.value.commit!.message)
     }
   ];

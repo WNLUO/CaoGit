@@ -10,7 +10,29 @@ permissions:
   contents: write
 
 jobs:
+  verify-version:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify version consistency
+        run: |
+          TAG_VERSION=${GITHUB_REF#refs/tags/v}
+          CONFIG_VERSION=$(jq -r '.version' src-tauri/tauri.conf.json)
+
+          echo "🔍 版本验证:"
+          echo "  Git Tag: v$TAG_VERSION"
+          echo "  tauri.conf.json: $CONFIG_VERSION"
+
+          if [ "$TAG_VERSION" != "$CONFIG_VERSION" ]; then
+            echo "❌ 版本号不匹配！"
+            echo "   请确保 Git tag 和 tauri.conf.json 中的版本号一致"
+            exit 1
+          fi
+          echo "✅ 版本号验证通过！"
+
   create-release:
+    needs: verify-version
     runs-on: ubuntu-latest
     outputs:
       release_id: ${{ steps.create-release.outputs.result }}
@@ -54,7 +76,7 @@ jobs:
             }
 
   build-macos:
-    needs: create-release
+    needs: [verify-version, create-release]
     runs-on: macos-latest
 
     steps:
@@ -91,7 +113,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   build-windows:
-    needs: create-release
+    needs: [verify-version, create-release]
     runs-on: windows-latest
 
     steps:
@@ -169,7 +191,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   build-linux:
-    needs: create-release
+    needs: [verify-version, create-release]
     runs-on: ubuntu-latest
 
     steps:

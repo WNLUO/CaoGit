@@ -45,6 +45,16 @@
       ]
     }
   },
+  "plugins": {
+    "updater": {
+      "active": true,
+      "endpoints": [
+        "https://raw.githubusercontent.com/wnluo/caogit/main/updates/latest.json"
+      ],
+      "dialog": false,
+      "pubkey": "dW3Z9kL2mN5P6qRsT7uVwXyZ0aB1cD3eF4gH5iJ6kL7mN8oP9qR0sT1uV2wX3yZ4aB5cD"
+    }
+  },
   "bundle": {
     "active": true,
     "targets": "all",

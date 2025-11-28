@@ -231,7 +231,7 @@ async function publishRelease() {
 
   publishing.value = true
   try {
-    const actionsUrl = await invoke('publish_new_release', {
+    await invoke('publish_new_release', {
       repoPath: props.repoPath,
       config: {
         version: newVersion.value,

@@ -28,7 +28,7 @@ const model = ref('gpt-4');
 const systemPrompt = ref('你是一个专业的Git提交信息生成助手。请基于代码变更内容，生成简洁、清晰、符合规范的提交信息。提交信息应该：1. 使用祈使句 2. 首字母小写 3. 不超过50个字符 4. 描述做了什么，而不是怎么做的');
 const language = ref('zh-CN');
 const temperature = ref(0.7);
-const maxTokens = ref(200);
+const maxTokens = ref(300);
 
 // Load saved settings
 watch(() => props.isOpen, (newVal) => {

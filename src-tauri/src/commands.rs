@@ -646,3 +646,16 @@ pub fn copy_to_clipboard(text: String) -> ApiResponse<String> {
         Err(e) => ApiResponse::error(format!("Failed to copy to clipboard: {}", e)),
     }
 }
+
+// Version management
+#[derive(Debug, Serialize)]
+pub struct VersionInfo {
+    pub version: String,
+}
+
+#[tauri::command]
+pub fn get_app_version() -> VersionInfo {
+    VersionInfo {
+        version: env!("CARGO_PKG_VERSION").to_string(),
+    }
+}

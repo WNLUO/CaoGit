@@ -146,6 +146,110 @@ export const debugStore = reactive({
   closeErrorDialog() {
     showErrorDialogRef.value = false;
     this.currentError = null;
+  },
+
+  // 日志过滤
+  getFilteredErrors(type?: 'error' | 'warning' | 'info', searchText?: string) {
+    let filtered = this.errors;
+
+    if (type) {
+      filtered = filtered.filter(e => e.type === type);
+    }
+
+    if (searchText) {
+      const lowerSearch = searchText.toLowerCase();
+      filtered = filtered.filter(e =>
+        e.message.toLowerCase().includes(lowerSearch) ||
+        e.context?.toLowerCase().includes(lowerSearch)
+      );
+    }
+
+    return filtered;
+  },
+
+  // 获取错误统计
+  getErrorStats() {
+    return {
+      total: this.errors.length,
+      errors: this.errors.filter(e => e.type === 'error').length,
+      warnings: this.errors.filter(e => e.type === 'warning').length,
+      infos: this.errors.filter(e => e.type === 'info').length,
+    };
+  },
+
+  // 导出日志为 JSON
+  exportLogsAsJson() {
+    const data = {
+      exportTime: new Date().toISOString(),
+      stats: this.getErrorStats(),
+      logs: this.errors.map(e => this.getFormattedError(e))
+    };
+    const json = JSON.stringify(data, null, 2);
+    this.downloadFile(json, `logs_${Date.now()}.json`, 'application/json');
+  },
+
+  // 导出日志为 CSV
+  exportLogsAsCSV() {
+    const headers = ['时间', '类型', '消息', '上下文'];
+    const rows = this.errors.map(e => [
+      new Date(e.timestamp).toLocaleString('zh-CN'),
+      e.type,
+      `"${e.message.replace(/"/g, '""')}"`,
+      `"${(e.context || '').replace(/"/g, '""')}"`
+    ]);
+
+    const csv = [headers, ...rows]
+      .map(row => row.join(','))
+      .join('\n');
+
+    this.downloadFile(csv, `logs_${Date.now()}.csv`, 'text/csv');
+  },
+
+  // 导出日志为文本
+  exportLogsAsText() {
+    const lines = [
+      `=== Git管理器 调试日志 ===`,
+      `导出时间: ${new Date().toLocaleString('zh-CN')}`,
+      ``,
+      `统计信息:`,
+      `  总数: ${this.errors.length}`,
+      `  错误: ${this.errors.filter(e => e.type === 'error').length}`,
+      `  警告: ${this.errors.filter(e => e.type === 'warning').length}`,
+      `  信息: ${this.errors.filter(e => e.type === 'info').length}`,
+      ``,
+      `═════════════════════════════════════`,
+      ...this.errors.map(e => this.getFormattedError(e)).map(e => `\n${e}\n`)
+    ];
+
+    this.downloadFile(lines.join('\n'), `logs_${Date.now()}.txt`, 'text/plain');
+  },
+
+  // 辅助方法：下载文件
+  downloadFile(content: string, filename: string, mimeType: string) {
+    const blob = new Blob([content], { type: mimeType });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  },
+
+  // 按时间范围清除日志
+  clearErrorsByDateRange(startDate: Date, endDate: Date) {
+    const start = startDate.getTime();
+    const end = endDate.getTime();
+    this.errors = this.errors.filter(e => {
+      const time = new Date(e.timestamp).getTime();
+      return time < start || time > end;
+    });
+  },
+
+  // 按类型清除日志
+  clearErrorsByType(type: 'error' | 'warning' | 'info') {
+    this.errors = this.errors.filter(e => e.type !== type);
   }
 });
 
