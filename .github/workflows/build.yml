@@ -112,23 +112,58 @@ jobs:
       - name: Build Tauri app
         run: npm run tauri:build
 
-      - name: Find and upload Windows installer
+      - name: List build output
         shell: bash
         run: |
-          # Try MSI first
-          MSI_FILE=$(find src-tauri/target/release/bundle/msi -name "*.msi" -type f 2>/dev/null | head -n 1)
-          # Try NSIS if MSI not found
-          NSIS_FILE=$(find src-tauri/target/release/bundle/nsis -name "*.exe" -type f 2>/dev/null | head -n 1)
+          echo "=== Checking build output directories ==="
+          echo "MSI directory:"
+          ls -la src-tauri/target/release/bundle/msi/ 2>/dev/null || echo "MSI directory not found"
+          echo ""
+          echo "NSIS directory:"
+          ls -la src-tauri/target/release/bundle/nsis/ 2>/dev/null || echo "NSIS directory not found"
+          echo ""
+          echo "All bundle directories:"
+          ls -la src-tauri/target/release/bundle/ 2>/dev/null || echo "Bundle directory not found"
 
-          if [ -f "$MSI_FILE" ]; then
-            echo "Found MSI installer: $MSI_FILE"
-            gh release upload ${{ github.ref_name }} "$MSI_FILE" --clobber
-          elif [ -f "$NSIS_FILE" ]; then
-            echo "Found NSIS installer: $NSIS_FILE"
-            gh release upload ${{ github.ref_name }} "$NSIS_FILE" --clobber
+      - name: Upload Windows installers
+        shell: bash
+        run: |
+          UPLOADED=false
+
+          # Search for all MSI files
+          echo "=== Searching for MSI installers ==="
+          if [ -d "src-tauri/target/release/bundle/msi" ]; then
+            for MSI_FILE in src-tauri/target/release/bundle/msi/*.msi; do
+              if [ -f "$MSI_FILE" ]; then
+                echo "Uploading MSI: $MSI_FILE"
+                gh release upload "${{ github.ref_name }}" "$MSI_FILE" --clobber
+                UPLOADED=true
+              fi
+            done
           else
-            echo "No Windows installer found"
+            echo "MSI directory not found"
+          fi
+
+          # Search for all NSIS exe files
+          echo "=== Searching for NSIS installers ==="
+          if [ -d "src-tauri/target/release/bundle/nsis" ]; then
+            for NSIS_FILE in src-tauri/target/release/bundle/nsis/*.exe; do
+              if [ -f "$NSIS_FILE" ]; then
+                echo "Uploading NSIS: $NSIS_FILE"
+                gh release upload "${{ github.ref_name }}" "$NSIS_FILE" --clobber
+                UPLOADED=true
+              fi
+            done
+          else
+            echo "NSIS directory not found"
+          fi
+
+          if [ "$UPLOADED" = false ]; then
+            echo "❌ ERROR: No Windows installer files found!"
+            echo "Build may have failed or produced no installer packages."
             exit 1
+          else
+            echo "✅ Successfully uploaded Windows installer(s)"
           fi
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
