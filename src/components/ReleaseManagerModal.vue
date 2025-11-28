@@ -1,0 +1,571 @@
+<template>
+  <div v-if="show" class="modal-overlay" @click.self="close">
+    <div class="modal-container">
+      <div class="modal-header">
+        <h2>🚀 发布管理</h2>
+        <button class="close-btn" @click="close">×</button>
+      </div>
+
+      <div class="modal-body">
+        <!-- Loading State -->
+        <div v-if="loading" class="loading">
+          <div class="spinner"></div>
+          <p>加载中...</p>
+        </div>
+
+        <!-- Error State -->
+        <div v-else-if="error" class="error-box">
+          <p>{{ error }}</p>
+          <button @click="loadReleaseInfo">重试</button>
+        </div>
+
+        <!-- Main Content -->
+        <div v-else-if="releaseInfo" class="content">
+          <!-- Publish Section -->
+          <div class="section">
+            <h3>发布新版本</h3>
+            <div class="publish-form">
+              <div class="form-group">
+                <label>当前版本:</label>
+                <span class="current-version">{{ releaseInfo.currentVersion }}</span>
+              </div>
+
+              <div class="form-group">
+                <label>新版本号:</label>
+                <div class="version-input">
+                  <input v-model="newVersion" type="text" placeholder="v0.2.2" />
+                  <button @click="incrementPatch">+Patch</button>
+                  <button @click="incrementMinor">+Minor</button>
+                  <button @click="incrementMajor">+Major</button>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label>发布说明:</label>
+                <textarea v-model="releaseMessage" rows="3" placeholder="Release notes..."></textarea>
+              </div>
+
+              <button class="publish-btn" :disabled="publishing" @click="publishRelease">
+                <span v-if="publishing">发布中...</span>
+                <span v-else>🚀 发布到 GitHub</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Releases List -->
+          <div class="section">
+            <h3>最近发布 ({{ releaseInfo.releases.length }})</h3>
+            <div class="releases-list">
+              <div v-for="release in releaseInfo.releases.slice(0, 5)" :key="release.id" class="release-item">
+                <div class="release-header">
+                  <span class="release-tag">{{ release.tagName }}</span>
+                  <span class="release-date">{{ formatDate(release.createdAt) }}</span>
+                </div>
+                <div class="release-body">
+                  <p>{{ release.name }}</p>
+                  <div class="release-assets">
+                    <span>📦 {{ release.assets.length }} 个文件</span>
+                    <span>📥 {{ totalDownloads(release.assets) }} 次下载</span>
+                  </div>
+                </div>
+                <a :href="release.htmlUrl" target="_blank" class="view-link">查看详情 →</a>
+              </div>
+            </div>
+          </div>
+
+          <!-- Workflow Runs -->
+          <div class="section">
+            <h3>构建状态</h3>
+            <div class="workflows-list">
+              <div v-for="run in releaseInfo.workflowRuns.slice(0, 5)" :key="run.id" class="workflow-item">
+                <div class="workflow-status" :class="getStatusClass(run.status, run.conclusion)">
+                  {{ getStatusIcon(run.status, run.conclusion) }}
+                </div>
+                <div class="workflow-info">
+                  <div class="workflow-name">{{ run.name }}</div>
+                  <div class="workflow-meta">
+                    <span>{{ formatDate(run.createdAt) }}</span>
+                    <span v-if="run.conclusion">{{ run.conclusion }}</span>
+                  </div>
+                </div>
+                <div class="workflow-actions">
+                  <a :href="run.htmlUrl" target="_blank" class="view-link-small">查看</a>
+                  <button v-if="run.conclusion === 'failure'" @click="rerunWorkflow(run.id)" class="rerun-btn">
+                    重新运行
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { ref, watch } from 'vue'
+import { invoke } from '@tauri-apps/api/core'
+
+const props = defineProps<{
+  show: boolean
+  repoPath: string | null
+  githubToken: string | null
+}>()
+
+const emit = defineEmits<{
+  close: []
+  success: [message: string]
+}>()
+
+const loading = ref(false)
+const error = ref<string | null>(null)
+const releaseInfo = ref<any>(null)
+const newVersion = ref('')
+const releaseMessage = ref('')
+const publishing = ref(false)
+
+// Watch for modal open
+watch(() => props.show, (show) => {
+  if (show && props.repoPath) {
+    loadReleaseInfo()
+  }
+})
+
+async function loadReleaseInfo() {
+  if (!props.repoPath) return
+
+  loading.value = true
+  error.value = null
+
+  try {
+    releaseInfo.value = await invoke('get_release_info', {
+      repoPath: props.repoPath,
+      githubToken: props.githubToken || undefined
+    })
+
+    // Set default new version
+    newVersion.value = releaseInfo.value.currentVersion
+  } catch (e: any) {
+    error.value = e.toString()
+  } finally {
+    loading.value = false
+  }
+}
+
+async function publishRelease() {
+  if (!props.repoPath || !newVersion.value) return
+
+  publishing.value = true
+  try {
+    const actionsUrl = await invoke('publish_new_release', {
+      repoPath: props.repoPath,
+      config: {
+        version: newVersion.value,
+        message: releaseMessage.value || `Release ${newVersion.value}`,
+        createTag: true,
+        pushTag: true
+      },
+      githubToken: props.githubToken || undefined
+    })
+
+    emit('success', `发布成功！构建已触发`)
+
+    // Open Actions page
+    if (actionsUrl) {
+      window.open(actionsUrl as string, '_blank')
+    }
+
+    // Reload release info
+    await loadReleaseInfo()
+  } catch (e: any) {
+    error.value = e.toString()
+  } finally {
+    publishing.value = false
+  }
+}
+
+async function incrementVersion(part: string) {
+  try {
+    newVersion.value = await invoke('increment_version', {
+      version: newVersion.value || releaseInfo.value.currentVersion,
+      part
+    })
+  } catch (e) {
+    console.error('Failed to increment version:', e)
+  }
+}
+
+function incrementPatch() { incrementVersion('patch') }
+function incrementMinor() { incrementVersion('minor') }
+function incrementMajor() { incrementVersion('major') }
+
+async function rerunWorkflow(runId: number) {
+  if (!props.githubToken) {
+    error.value = '需要 GitHub Token 才能重新运行构建'
+    return
+  }
+
+  try {
+    await invoke('rerun_failed_build', {
+      repoPath: props.repoPath,
+      runId,
+      githubToken: props.githubToken
+    })
+
+    emit('success', '重新触发构建成功')
+    await loadReleaseInfo()
+  } catch (e: any) {
+    error.value = e.toString()
+  }
+}
+
+function formatDate(dateStr: string) {
+  const date = new Date(dateStr)
+  const now = new Date()
+  const diffMs = now.getTime() - date.getTime()
+  const diffMins = Math.floor(diffMs / 60000)
+
+  if (diffMins < 60) return `${diffMins} 分钟前`
+  if (diffMins < 1440) return `${Math.floor(diffMins / 60)} 小时前`
+  return `${Math.floor(diffMins / 1440)} 天前`
+}
+
+function totalDownloads(assets: any[]) {
+  return assets.reduce((sum, asset) => sum + asset.downloadCount, 0)
+}
+
+function getStatusClass(status: string, conclusion: string | null) {
+  if (status === 'in_progress') return 'status-running'
+  if (conclusion === 'success') return 'status-success'
+  if (conclusion === 'failure') return 'status-failure'
+  return 'status-pending'
+}
+
+function getStatusIcon(status: string, conclusion: string | null) {
+  if (status === 'in_progress') return '⏳'
+  if (conclusion === 'success') return '✅'
+  if (conclusion === 'failure') return '❌'
+  return '⏸️'
+}
+
+function close() {
+  emit('close')
+}
+</script>
+
+<style scoped>
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-container {
+  background: var(--bg-primary);
+  border-radius: 12px;
+  width: 90%;
+  max-width: 900px;
+  max-height: 90vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+}
+
+.modal-header {
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.modal-header h2 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  font-size: 28px;
+  cursor: pointer;
+  color: var(--text-secondary);
+  padding: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+}
+
+.close-btn:hover {
+  background: var(--bg-secondary);
+}
+
+.modal-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px;
+}
+
+.loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px;
+}
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid var(--border-color);
+  border-top-color: var(--accent-color);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.error-box {
+  padding: 20px;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 8px;
+  color: #ef4444;
+  text-align: center;
+}
+
+.section {
+  margin-bottom: 32px;
+}
+
+.section h3 {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 16px;
+  color: var(--text-primary);
+}
+
+.publish-form {
+  background: var(--bg-secondary);
+  padding: 20px;
+  border-radius: 8px;
+}
+
+.form-group {
+  margin-bottom: 16px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.current-version {
+  display: inline-block;
+  padding: 6px 12px;
+  background: var(--accent-color);
+  color: white;
+  border-radius: 6px;
+  font-weight: 600;
+}
+
+.version-input {
+  display: flex;
+  gap: 8px;
+}
+
+.version-input input {
+  flex: 1;
+  padding: 8px 12px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  color: var(--text-primary);
+  font-size: 14px;
+}
+
+.version-input button {
+  padding: 8px 16px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  transition: all 0.2s;
+}
+
+.version-input button:hover {
+  border-color: var(--accent-color);
+  color: var(--accent-color);
+}
+
+textarea {
+  width: 100%;
+  padding: 8px 12px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  color: var(--text-primary);
+  font-size: 14px;
+  resize: vertical;
+  font-family: inherit;
+}
+
+.publish-btn {
+  width: 100%;
+  padding: 12px;
+  background: var(--accent-color);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.publish-btn:hover:not(:disabled) {
+  opacity: 0.9;
+}
+
+.publish-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.releases-list, .workflows-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.release-item, .workflow-item {
+  padding: 16px;
+  background: var(--bg-secondary);
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+}
+
+.release-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.release-tag {
+  font-weight: 600;
+  color: var(--accent-color);
+}
+
+.release-date {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.release-body p {
+  margin: 8px 0;
+  color: var(--text-primary);
+  font-size: 14px;
+}
+
+.release-assets {
+  display: flex;
+  gap: 16px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-top: 8px;
+}
+
+.workflow-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.workflow-status {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  font-size: 18px;
+}
+
+.status-running { background: rgba(59, 130, 246, 0.1); }
+.status-success { background: rgba(34, 197, 94, 0.1); }
+.status-failure { background: rgba(239, 68, 68, 0.1); }
+.status-pending { background: var(--bg-tertiary); }
+
+.workflow-info {
+  flex: 1;
+}
+
+.workflow-name {
+  font-weight: 500;
+  color: var(--text-primary);
+  font-size: 14px;
+}
+
+.workflow-meta {
+  display: flex;
+  gap: 12px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-top: 4px;
+}
+
+.workflow-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.view-link, .view-link-small {
+  color: var(--accent-color);
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.view-link-small {
+  font-size: 13px;
+}
+
+.view-link:hover, .view-link-small:hover {
+  text-decoration: underline;
+}
+
+.rerun-btn {
+  padding: 6px 12px;
+  background: var(--accent-color);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.rerun-btn:hover {
+  opacity: 0.9;
+}
+</style>

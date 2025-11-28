@@ -1,7 +1,10 @@
 mod git_ops;
 mod commands;
+mod github_api;
+mod release_commands;
 
 use commands::*;
+use release_commands::*;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -48,6 +51,10 @@ pub fn run() {
             set_window_theme,
             call_ai_api,
             copy_to_clipboard,
+            get_release_info,
+            publish_new_release,
+            rerun_failed_build,
+            increment_version,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

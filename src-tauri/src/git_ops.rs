@@ -559,6 +559,14 @@ impl GitRepository {
         Ok(remote_infos)
     }
 
+    pub fn get_remote_url(&self, name: &str) -> Result<String> {
+        let remote = self.repo.find_remote(name)?;
+        remote
+            .url()
+            .map(|s| s.to_string())
+            .ok_or_else(|| anyhow::anyhow!("Remote '{}' has no URL", name))
+    }
+
     pub fn add_remote(&self, name: &str, url: &str) -> Result<()> {
         self.repo.remote(name, url)?;
         Ok(())
