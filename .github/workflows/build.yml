@@ -42,7 +42,7 @@ jobs:
           tagName: ${{ github.ref_name }}
           releaseName: Release ${{ github.ref_name }}
           releaseBody: 'See the assets to download and install this version.'
-          releaseDraft: false
+          releaseDraft: true
           prerelease: false
           args: --target ${{ matrix.target }}
 
@@ -74,7 +74,7 @@ jobs:
           tagName: ${{ github.ref_name }}
           releaseName: Release ${{ github.ref_name }}
           releaseBody: 'See the assets to download and install this version.'
-          releaseDraft: false
+          releaseDraft: true
           prerelease: false
 
   build-linux:
@@ -117,5 +117,19 @@ jobs:
           tagName: ${{ github.ref_name }}
           releaseName: Release ${{ github.ref_name }}
           releaseBody: 'See the assets to download and install this version.'
-          releaseDraft: false
+          releaseDraft: true
           prerelease: false
+
+  publish-release:
+    needs: [build-macos, build-windows, build-linux]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Publish release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release edit ${{ github.ref_name }} --draft=false
