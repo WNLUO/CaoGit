@@ -16,21 +16,39 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Create release
+      - name: Get or create release
         id: create-release
         uses: actions/github-script@v7
         with:
           script: |
-            const { data } = await github.rest.repos.createRelease({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              tag_name: `${{ github.ref_name }}`,
-              name: `Release ${{ github.ref_name }}`,
-              body: 'See the assets to download and install this version.',
-              draft: true,
-              prerelease: false
-            })
-            return data.id
+            const tag = '${{ github.ref_name }}';
+
+            // Try to get existing release
+            try {
+              const { data } = await github.rest.repos.getReleaseByTag({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                tag: tag
+              });
+              console.log(`Found existing release: ${data.id}`);
+              return data.id;
+            } catch (error) {
+              if (error.status === 404) {
+                // Create new release if not exists
+                const { data } = await github.rest.repos.createRelease({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  tag_name: tag,
+                  name: `Release ${tag}`,
+                  body: 'See the assets to download and install this version.',
+                  draft: true,
+                  prerelease: false
+                });
+                console.log(`Created new release: ${data.id}`);
+                return data.id;
+              }
+              throw error;
+            }
 
   build-macos:
     needs: create-release
