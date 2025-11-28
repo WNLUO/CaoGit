@@ -55,6 +55,7 @@ pub fn run() {
             publish_new_release,
             rerun_failed_build,
             increment_version,
+            generate_release_notes,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

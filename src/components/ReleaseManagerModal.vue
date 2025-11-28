@@ -42,7 +42,18 @@
 
               <div class="form-group">
                 <label>发布说明:</label>
-                <textarea v-model="releaseMessage" rows="3" placeholder="Release notes..."></textarea>
+                <textarea v-model="releaseMessage" rows="6" placeholder="Release notes..."></textarea>
+                <button class="generate-btn" :disabled="generating" @click="generateNotes">
+                  <svg v-if="!generating" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+                  </svg>
+                  <svg v-else width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="spinning">
+                    <polyline points="23 4 23 10 17 10"></polyline>
+                    <polyline points="1 20 1 14 7 14"></polyline>
+                    <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+                  </svg>
+                  {{ generating ? '生成中...' : '自动生成' }}
+                </button>
               </div>
 
               <button class="publish-btn" :disabled="publishing" @click="publishRelease">
@@ -167,6 +178,7 @@ const releaseInfo = ref<any>(null)
 const newVersion = ref('')
 const releaseMessage = ref('')
 const publishing = ref(false)
+const generating = ref(false)
 
 // Watch for modal open
 watch(() => props.show, (show) => {
@@ -193,6 +205,24 @@ async function loadReleaseInfo() {
     error.value = e.toString()
   } finally {
     loading.value = false
+  }
+}
+
+async function generateNotes() {
+  if (!props.repoPath || !releaseInfo.value) return
+
+  generating.value = true
+  try {
+    const notes = await invoke('generate_release_notes', {
+      repoPath: props.repoPath,
+      fromVersion: releaseInfo.value.current_version,
+      toVersion: newVersion.value || 'HEAD'
+    })
+    releaseMessage.value = notes as string
+  } catch (e) {
+    emit('error', `生成发布说明失败: ${e}`)
+  } finally {
+    generating.value = false
   }
 }
 
@@ -501,6 +531,36 @@ textarea {
   font-size: 14px;
   resize: vertical;
   font-family: inherit;
+  margin-bottom: 8px;
+}
+
+.generate-btn {
+  padding: 6px 12px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  color: var(--text-secondary);
+  font-size: 13px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s;
+}
+
+.generate-btn:hover:not(:disabled) {
+  background: var(--bg-hover);
+  border-color: var(--accent-color);
+  color: var(--accent-color);
+}
+
+.generate-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.generate-btn svg {
+  stroke: currentColor;
 }
 
 .publish-btn {

@@ -239,3 +239,139 @@ fn get_latest_git_tag(repo_path: &str) -> Result<String> {
         .cloned()
         .context("获取最新标签失败")
 }
+
+/// 生成发布说明
+#[tauri::command]
+pub fn generate_release_notes(
+    repo_path: String,
+    from_version: String,
+    to_version: String,
+) -> Result<String, String> {
+    let repo = GitRepository::open(&repo_path).map_err(|e| e.to_string())?;
+
+    // 如果 to_version 为空或者是新版本，使用 HEAD
+    let to_ref = if to_version.is_empty() || to_version.starts_with("v0.") {
+        "HEAD"
+    } else {
+        &to_version
+    };
+
+    // 获取两个版本之间的提交记录
+    let commits = repo
+        .get_commits_between(&from_version, to_ref)
+        .map_err(|e| format!("获取提交记录失败: {}", e))?;
+
+    if commits.is_empty() {
+        return Ok("没有新的提交记录".to_string());
+    }
+
+    // 按照 Conventional Commits 规范分类提交
+    let mut features = Vec::new();
+    let mut fixes = Vec::new();
+    let mut docs = Vec::new();
+    let mut refactors = Vec::new();
+    let mut perfs = Vec::new();
+    let mut tests = Vec::new();
+    let mut chores = Vec::new();
+    let mut others = Vec::new();
+
+    for commit in commits {
+        let message = commit.message.trim();
+        let first_line = message.lines().next().unwrap_or("");
+
+        // 解析提交类型
+        if let Some(colon_pos) = first_line.find(':') {
+            let prefix = &first_line[..colon_pos].trim();
+            let description = first_line[colon_pos + 1..].trim();
+
+            // 处理 scope，例如 "feat(ui): xxx" -> "feat"
+            let commit_type = if let Some(paren_pos) = prefix.find('(') {
+                &prefix[..paren_pos]
+            } else {
+                prefix
+            };
+
+            match commit_type {
+                "feat" | "feature" => features.push(description.to_string()),
+                "fix" => fixes.push(description.to_string()),
+                "docs" => docs.push(description.to_string()),
+                "refactor" => refactors.push(description.to_string()),
+                "perf" => perfs.push(description.to_string()),
+                "test" => tests.push(description.to_string()),
+                "chore" | "build" | "ci" => chores.push(description.to_string()),
+                _ => others.push(first_line.to_string()),
+            }
+        } else {
+            others.push(first_line.to_string());
+        }
+    }
+
+    // 生成 Markdown 格式的发布说明
+    let mut notes = String::new();
+
+    if !features.is_empty() {
+        notes.push_str("## ✨ 新功能\n\n");
+        for feat in features {
+            notes.push_str(&format!("- {}\n", feat));
+        }
+        notes.push('\n');
+    }
+
+    if !fixes.is_empty() {
+        notes.push_str("## 🐛 Bug 修复\n\n");
+        for fix in fixes {
+            notes.push_str(&format!("- {}\n", fix));
+        }
+        notes.push('\n');
+    }
+
+    if !perfs.is_empty() {
+        notes.push_str("## ⚡ 性能优化\n\n");
+        for perf in perfs {
+            notes.push_str(&format!("- {}\n", perf));
+        }
+        notes.push('\n');
+    }
+
+    if !refactors.is_empty() {
+        notes.push_str("## ♻️ 代码重构\n\n");
+        for refactor in refactors {
+            notes.push_str(&format!("- {}\n", refactor));
+        }
+        notes.push('\n');
+    }
+
+    if !docs.is_empty() {
+        notes.push_str("## 📝 文档更新\n\n");
+        for doc in docs {
+            notes.push_str(&format!("- {}\n", doc));
+        }
+        notes.push('\n');
+    }
+
+    if !tests.is_empty() {
+        notes.push_str("## ✅ 测试\n\n");
+        for test in tests {
+            notes.push_str(&format!("- {}\n", test));
+        }
+        notes.push('\n');
+    }
+
+    if !chores.is_empty() {
+        notes.push_str("## 🔧 其他改动\n\n");
+        for chore in chores {
+            notes.push_str(&format!("- {}\n", chore));
+        }
+        notes.push('\n');
+    }
+
+    if !others.is_empty() {
+        notes.push_str("## 📋 其他提交\n\n");
+        for other in others {
+            notes.push_str(&format!("- {}\n", other));
+        }
+        notes.push('\n');
+    }
+
+    Ok(notes.trim().to_string())
+}

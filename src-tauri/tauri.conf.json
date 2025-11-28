@@ -32,7 +32,14 @@
             "dialog:allow-ask",
             "dialog:allow-confirm",
             "dialog:default",
-            "opener:allow-open-url"
+            {
+              "identifier": "opener:allow-open-url",
+              "allow": [
+                {
+                  "url": "https://github.com/**"
+                }
+              ]
+            }
           ]
         }
       ]

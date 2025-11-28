@@ -298,6 +298,48 @@ impl GitRepository {
         Ok(commits)
     }
 
+    /// Get commits between two tags or refs
+    pub fn get_commits_between(&self, from_ref: &str, to_ref: &str) -> Result<Vec<CommitInfo>> {
+        let mut revwalk = self.repo.revwalk()?;
+
+        // Get the commit object for the "to" reference (newer)
+        let to_obj = self.repo.revparse_single(to_ref)
+            .context(format!("无法找到引用: {}", to_ref))?;
+        let to_commit = to_obj.peel_to_commit()
+            .context(format!("引用 {} 不是有效的提交", to_ref))?;
+
+        // Get the commit object for the "from" reference (older)
+        let from_obj = self.repo.revparse_single(from_ref)
+            .context(format!("无法找到引用: {}", from_ref))?;
+        let from_commit = from_obj.peel_to_commit()
+            .context(format!("引用 {} 不是有效的提交", from_ref))?;
+
+        // Push the "to" commit to start walking from there
+        revwalk.push(to_commit.id())?;
+
+        // Hide the "from" commit and its ancestors
+        revwalk.hide(from_commit.id())?;
+
+        let mut commits = Vec::new();
+        for oid in revwalk {
+            let oid = oid?;
+            let commit = self.repo.find_commit(oid)?;
+
+            commits.push(CommitInfo {
+                hash: oid.to_string(),
+                message: commit.message().unwrap_or("").to_string(),
+                author: commit.author().name().unwrap_or("").to_string(),
+                email: commit.author().email().unwrap_or("").to_string(),
+                date: DateTime::<Utc>::from_timestamp(commit.time().seconds(), 0)
+                    .unwrap()
+                    .to_rfc3339(),
+                parents: commit.parents().map(|p| p.id().to_string()).collect(),
+            });
+        }
+
+        Ok(commits)
+    }
+
     pub fn get_branches(&self) -> Result<Vec<BranchInfo>> {
         let mut branches = Vec::new();
 
