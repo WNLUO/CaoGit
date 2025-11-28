@@ -110,7 +110,7 @@ jobs:
             echo "Uploading macOS helper files..."
             gh release upload ${{ github.ref_name }} \
               "src-tauri/resources/fix-macos.command" \
-              "src-tauri/resources/使用说明.txt" \
+              "src-tauri/resources/README-macOS.txt" \
               --clobber
           else
             echo "No DMG file found"

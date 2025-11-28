@@ -55,7 +55,7 @@
     ],
     "resources": [
       "resources/fix-macos.command",
-      "resources/使用说明.txt"
+      "resources/README-macOS.txt"
     ],
     "targets": "all"
   },
