@@ -1,11 +1,7 @@
-# CaoGit
+![CaoGit Logo](https://img.wnluo.com/i/2025/11/28/z75rff.png)
 
 <p align="center">
-  <img src="public/icon.png" alt="CaoGit Logo" width="128" height="128">
-</p>
-
-<p align="center">
-  <strong>一个功能强大的跨平台 Git 图形化客户端</strong>
+  **一个功能强大的跨平台 Git 图形化客户端**
 </p>
 
 <p align="center">
@@ -13,9 +9,9 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/WNLUO/CaoGit/releases"><img src="https://img.shields.io/github/v/release/WNLUO/CaoGit" alt="Release"></a>
-  <a href="https://github.com/WNLUO/CaoGit/blob/main/LICENSE"><img src="https://img.shields.io/github/license/WNLUO/CaoGit" alt="License"></a>
-  <a href="https://github.com/WNLUO/CaoGit/issues"><img src="https://img.shields.io/github/issues/WNLUO/CaoGit" alt="Issues"></a>
+  <a href="https://github.com/WNLUO/CaoGit/releases">![Release](https://img.shields.io/github/v/release/WNLUO/CaoGit)</a>
+  <a href="https://github.com/WNLUO/CaoGit/blob/main/LICENSE">![License](https://img.shields.io/github/license/WNLUO/CaoGit)</a>
+  <a href="https://github.com/WNLUO/CaoGit/issues">![Issues](https://img.shields.io/github/issues/WNLUO/CaoGit)</a>
 </p>
 
 ---
@@ -23,6 +19,7 @@
 ## 特性
 
 ### 核心功能
+
 - **多仓库管理** - 同时管理多个 Git 仓库，快速切换
 - **完整分支管理** - 创建、切换、删除、合并分支
 - **智能提交** - 可视化 stage/unstage，支持 AI 生成提交信息
@@ -30,11 +27,13 @@
 - **提交历史** - 美观的提交历史展示，支持搜索和过滤
 
 ### 可视化
+
 - **分支可视化图** - Canvas 绘制的交互式分支图
 - **高级 Diff 查看器** - 并排/内联两种模式，语法高亮
 - **实时状态** - 工作区和暂存区实时状态展示
 
 ### 高级操作
+
 - **Tag 管理** - 创建、查看、删除标签
 - **Stash 功能** - 保存和恢复工作状态
 - **Merge** - 智能合并，自动检测冲突
@@ -59,18 +58,20 @@
 
 ### 🍎 macOS 用户重要提示
 
-由于应用未经过 Apple 公证，首次打开时可能会遇到 **"CaoGit 已损坏，无法打开"** 的提示。
+由于应用未经过 Apple 公证，首次打开时可能会遇到  **"CaoGit 已损坏，无法打开"**  的提示。
 
 **最简单的解决方法**：
 
 **方法 1：使用自动修复脚本（推荐）✨**
 
 在 Releases 页面下载 `fix-macos.command` 文件，然后：
+
 1. 双击运行 `fix-macos.command` 脚本
 2. 按照提示操作
 3. 完成！现在可以正常打开 CaoGit 了
 
 **方法 2：使用终端命令**
+
 ```bash
 # 打开终端，执行以下命令（将路径替换为实际安装路径）
 xattr -cr /Applications/CaoGit.app
@@ -87,6 +88,7 @@ xattr -cr /Applications/CaoGit.app
 ### 🐧 Linux 用户提示
 
 **AppImage 用户**：
+
 ```bash
 # 添加执行权限
 chmod +x caogit_*.AppImage
@@ -96,18 +98,19 @@ chmod +x caogit_*.AppImage
 ```
 
 **DEB 包用户**：
+
 ```bash
 sudo dpkg -i caogit_*.deb
 ```
 
 ## 截图
 
-| 主界面 | Diff 查看器 |
-|:---:|:---:|
+|               主界面               |            Diff 查看器            |
+| :-----------------------------------: | :---------------------------------: |
 | ![主界面](docs/screenshots/main.png) | ![Diff](docs/screenshots/diff.png) |
 
-| 分支图 | 设置 |
-|:---:|:---:|
+|                   分支图                   |                 设置                 |
+| :-------------------------------------------: | :-------------------------------------: |
 | ![分支图](docs/screenshots/branch-graph.png) | ![设置](docs/screenshots/settings.png) |
 
 ## 快速开始
@@ -174,27 +177,29 @@ npm run test:coverage
 
 ### 快捷键
 
-| 快捷键 | 功能 |
-|--------|------|
-| `Ctrl+S` | 保存/提交 |
-| `Ctrl+R` | 刷新 |
-| `Ctrl+Shift+P` | 推送 |
-| `Ctrl+F` | 搜索 |
-| `Ctrl+B` | 切换分支 |
-| `Ctrl+,` | 打开设置 |
-| `Escape` | 关闭对话框 |
+| 快捷键 | 功能       |
+| -------- | ------------ |
+| `Ctrl+S`       | 保存/提交  |
+| `Ctrl+R`       | 刷新       |
+| `Ctrl+Shift+P`       | 推送       |
+| `Ctrl+F`       | 搜索       |
+| `Ctrl+B`       | 切换分支   |
+| `Ctrl+,`       | 打开设置   |
+| `Escape`       | 关闭对话框 |
 
 ## 技术架构
 
 ### 技术栈
 
 **后端 (Rust)**
+
 - [Tauri 2.0](https://tauri.app/) - 桌面应用框架
 - [git2-rs](https://github.com/rust-lang/git2-rs) - Git 操作库
 - [tokio](https://tokio.rs/) - 异步运行时
 - [serde](https://serde.rs/) - 序列化
 
 **前端 (Vue 3)**
+
 - [Vue 3.5](https://vuejs.org/) - 渐进式框架
 - [TypeScript 5.6](https://www.typescriptlang.org/) - 类型安全
 - [Vite 6.0](https://vitejs.dev/) - 构建工具
@@ -248,16 +253,16 @@ npm run test:coverage
 
 ## 与其他工具对比
 
-| 功能 | CaoGit | GitKraken | GitHub Desktop | SourceTree |
-|------|--------|-----------|----------------|------------|
-| 分支可视化 | ✅ | ✅ | ❌ | ✅ |
-| 并排 Diff | ✅ | ✅ | 部分 | ✅ |
-| 多仓库管理 | ✅ | ✅ | ❌ | ✅ |
-| 免费 | ✅ | 部分收费 | ✅ | ✅ |
-| 跨平台 | ✅ | ✅ | ✅ | macOS/Win |
-| AI 功能 | ✅ | ✅ | ❌ | ❌ |
-| 性能 | 轻量 | 资源占用高 | 中等 | 慢 |
-| 国际化 | ✅ | ✅ | ✅ | ✅ |
+| 功能       | CaoGit | GitKraken  | GitHub Desktop | SourceTree |
+| ------------ | -------- | ------------ | ---------------- | ------------ |
+| 分支可视化 | ✅     | ✅         | ❌             | ✅         |
+| 并排 Diff  | ✅     | ✅         | 部分           | ✅         |
+| 多仓库管理 | ✅     | ✅         | ❌             | ✅         |
+| 免费       | ✅     | 部分收费   | ✅             | ✅         |
+| 跨平台     | ✅     | ✅         | ✅             | macOS/Win  |
+| AI 功能    | ✅     | ✅         | ❌             | ❌         |
+| 性能       | 轻量   | 资源占用高 | 中等           | 慢         |
+| 国际化     | ✅     | ✅         | ✅             | ✅         |
 
 ## 贡献
 
