@@ -55,11 +55,6 @@
     ],
     "macOS": {
       "dmg": {
-        "background": "assets/dmg-background.jpg",
-        "windowSize": {
-          "width": 1025,
-          "height": 678
-        },
         "appPosition": {
           "x": 240,
           "y": 300
@@ -67,6 +62,11 @@
         "applicationFolderPosition": {
           "x": 790,
           "y": 300
+        },
+        "background": "assets/dmg-background.jpg",
+        "windowSize": {
+          "height": 678,
+          "width": 1025
         }
       }
     },
@@ -78,5 +78,5 @@
   },
   "identifier": "com.caogit.app",
   "productName": "CaoGit",
-  "version": "0.2.14"
+  "version": "0.2.15"
 }
