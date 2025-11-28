@@ -93,14 +93,14 @@ pub async fn publish_new_release(
     // 创建标签
     if config.create_tag {
         repo.create_tag(&config.version, Some(&config.message))
-            .map_err(|e| format!("Failed to create tag: {}", e))?;
+            .map_err(|e| format!("创建标签失败: {}", e))?;
     }
 
     // 推送标签
     if config.push_tag {
         // 推送标签到远程
-        repo.push("origin", &format!("refs/tags/{}", config.version))
-            .map_err(|e| format!("Failed to push tag: {}", e))?;
+        repo.push_tag("origin", &config.version)
+            .map_err(|e| format!("推送标签失败: {}", e))?;
     }
 
     // 获取远程 URL 并返回 Actions 链接

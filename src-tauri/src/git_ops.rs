@@ -487,9 +487,18 @@ impl GitRepository {
         Ok(())
     }
 
+    #[allow(dead_code)]
     pub fn push(&self, remote_name: &str, branch_name: &str) -> Result<()> {
         let mut remote = self.repo.find_remote(remote_name)?;
         let refspec = format!("refs/heads/{}:refs/heads/{}", branch_name, branch_name);
+        remote.push(&[&refspec], None)?;
+        Ok(())
+    }
+
+    /// 推送标签到远程仓库
+    pub fn push_tag(&self, remote_name: &str, tag_name: &str) -> Result<()> {
+        let mut remote = self.repo.find_remote(remote_name)?;
+        let refspec = format!("refs/tags/{}:refs/tags/{}", tag_name, tag_name);
         remote.push(&[&refspec], None)?;
         Ok(())
     }
