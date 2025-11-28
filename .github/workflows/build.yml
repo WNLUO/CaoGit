@@ -112,15 +112,17 @@ jobs:
       - name: Build Tauri app
         run: npm run tauri:build
 
-      - name: Find and upload MSI
+      - name: Find and upload Windows installer
         shell: bash
         run: |
-          MSI_FILE=$(find src-tauri/target/release/bundle/msi -name "*.msi" -type f | head -n 1)
-          if [ -f "$MSI_FILE" ]; then
-            echo "Found MSI: $MSI_FILE"
-            gh release upload ${{ github.ref_name }} "$MSI_FILE" --clobber
+          # NSIS installer
+          NSIS_FILE=$(find src-tauri/target/release/bundle/nsis -name "*.exe" -type f | head -n 1)
+
+          if [ -f "$NSIS_FILE" ]; then
+            echo "Found NSIS installer: $NSIS_FILE"
+            gh release upload ${{ github.ref_name }} "$NSIS_FILE" --clobber
           else
-            echo "No MSI file found"
+            echo "No NSIS installer found"
             exit 1
           fi
         env:
