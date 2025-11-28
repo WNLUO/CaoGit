@@ -79,30 +79,24 @@ pub async fn get_release_info(
 pub async fn publish_new_release(
     repo_path: String,
     config: PublishConfig,
-    github_token: Option<String>,
+    _github_token: Option<String>,
 ) -> Result<String, String> {
     let repo = GitRepository::open(&repo_path).map_err(|e| e.to_string())?;
 
     // 检查是否有未提交的改动
     let status = repo.get_status().map_err(|e| e.to_string())?;
-    if !status.is_clean() {
+    if !status.is_empty() {
         return Err("Repository has uncommitted changes. Please commit or stash them first.".to_string());
     }
 
     // 创建标签
     if config.create_tag {
-        repo.create_tag(&config.version, &config.message)
+        repo.create_tag(&config.version, Some(&config.message))
             .map_err(|e| format!("Failed to create tag: {}", e))?;
     }
 
     // 推送标签
     if config.push_tag {
-        // 获取当前分支
-        let current_branch = repo
-            .get_current_branch()
-            .map_err(|e| e.to_string())?
-            .unwrap_or_else(|| "master".to_string());
-
         // 推送标签到远程
         repo.push("origin", &format!("refs/tags/{}", config.version))
             .map_err(|e| format!("Failed to push tag: {}", e))?;

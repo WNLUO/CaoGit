@@ -375,6 +375,7 @@ impl GitRepository {
         }
     }
 
+    #[allow(dead_code)]
     pub fn fetch(&self, remote_name: &str) -> Result<()> {
         let mut remote = self.repo.find_remote(remote_name)?;
         remote.fetch(&[] as &[&str], None, None)?;
@@ -429,6 +430,7 @@ impl GitRepository {
         Ok(())
     }
 
+    #[allow(dead_code)]
     pub fn pull(&self, remote_name: &str, branch_name: &str) -> Result<()> {
         // Fetch first
         self.fetch(remote_name)?;

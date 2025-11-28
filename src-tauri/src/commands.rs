@@ -557,6 +557,7 @@ pub struct AIMessage {
     pub content: String,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, serde::Deserialize)]
 pub struct AIRequest {
     pub endpoint: String,

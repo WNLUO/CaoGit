@@ -141,11 +141,12 @@ impl GitHubClient {
     }
 
     /// 触发 workflow（通过创建标签）
+    #[allow(dead_code)]
     pub async fn trigger_release(
         &self,
         owner: &str,
         repo: &str,
-        tag_name: &str,
+        _tag_name: &str,
     ) -> Result<String> {
         // 这个方法只是返回构建的 Actions URL
         // 实际的标签创建由 Git 操作完成
