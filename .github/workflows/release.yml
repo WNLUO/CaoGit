@@ -1,0 +1,56 @@
+name: Create Release on Tag
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  create-release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate Changelog
+        id: changelog
+        run: |
+          # 获取最新两个标签
+          CURRENT_TAG=${{ github.ref_name }}
+          PREVIOUS_TAG=$(git tag --sort=-v:refname --merged HEAD | grep -v "^$" | sed -n '2p')
+
+          if [ -z "$PREVIOUS_TAG" ]; then
+            # 如果没有前一个标签，使用第一个提交
+            CHANGELOG=$(git log --pretty=format:"- %h: %s (%an)" --no-merges)
+          else
+            # 获取两个标签之间的提交
+            CHANGELOG=$(git log $PREVIOUS_TAG..$CURRENT_TAG --pretty=format:"- %h: %s (%an)" --no-merges)
+          fi
+
+          # 将多行输出转换为 GitHub 输出
+          echo "changelog<<EOF" >> $GITHUB_OUTPUT
+          echo "$CHANGELOG" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Create Release Notes
+        id: release_notes
+        run: |
+          NOTES="## 🎉 Release ${{ github.ref_name }}"
+          echo "" >> RELEASE_NOTES.md
+          echo "### 📝 Changes" >> RELEASE_NOTES.md
+          echo "${{ steps.changelog.outputs.changelog }}" >> RELEASE_NOTES.md
+          echo "" >> RELEASE_NOTES.md
+          echo "### 📦 Downloads" >> RELEASE_NOTES.md
+          echo "See assets below for installation files." >> RELEASE_NOTES.md
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          body_path: RELEASE_NOTES.md
+          draft: false
+          prerelease: false
+          token: ${{ secrets.GITHUB_TOKEN }}
