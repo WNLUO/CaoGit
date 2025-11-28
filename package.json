@@ -32,5 +32,5 @@
     "test:run": "vitest run"
   },
   "type": "module",
-  "version": "0.2.20"
+  "version": "0.2.21"
 }
