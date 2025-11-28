@@ -28,8 +28,8 @@
     "tauri:build": "tauri build",
     "tauri:dev": "tauri dev",
     "test": "vitest",
-    "test:run": "vitest run",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "test:run": "vitest run"
   },
   "type": "module",
   "version": "0.2.13"
