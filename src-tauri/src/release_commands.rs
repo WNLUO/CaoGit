@@ -279,10 +279,18 @@ pub fn generate_release_notes(
         let message = commit.message.trim();
         let first_line = message.lines().next().unwrap_or("");
 
+        // 移除所有反引号（包括 markdown 代码块标记）和多余的空格
+        let cleaned_line = first_line
+            .chars()
+            .filter(|c| *c != '`')
+            .collect::<String>()
+            .trim()
+            .to_string();
+
         // 解析提交类型
-        if let Some(colon_pos) = first_line.find(':') {
-            let prefix = &first_line[..colon_pos].trim();
-            let description = first_line[colon_pos + 1..].trim();
+        if let Some(colon_pos) = cleaned_line.find(':') {
+            let prefix = &cleaned_line[..colon_pos].trim();
+            let description = cleaned_line[colon_pos + 1..].trim();
 
             // 处理 scope，例如 "feat(ui): xxx" -> "feat"
             let commit_type = if let Some(paren_pos) = prefix.find('(') {
@@ -299,10 +307,10 @@ pub fn generate_release_notes(
                 "perf" => perfs.push(description.to_string()),
                 "test" => tests.push(description.to_string()),
                 "chore" | "build" | "ci" => chores.push(description.to_string()),
-                _ => others.push(first_line.to_string()),
+                _ => others.push(cleaned_line.clone()),
             }
         } else {
-            others.push(first_line.to_string());
+            others.push(cleaned_line);
         }
     }
 

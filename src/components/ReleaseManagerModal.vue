@@ -159,7 +159,6 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
-import { openUrl } from '@tauri-apps/plugin-opener'
 
 const props = defineProps<{
   show: boolean
@@ -220,7 +219,8 @@ async function generateNotes() {
     })
     releaseMessage.value = notes as string
   } catch (e) {
-    emit('error', `生成发布说明失败: ${e}`)
+    console.error('生成发布说明失败:', e)
+    releaseMessage.value = `生成失败: ${e}`
   } finally {
     generating.value = false
   }
@@ -243,11 +243,6 @@ async function publishRelease() {
     })
 
     emit('success', `发布成功！构建已触发`)
-
-    // Open Actions page
-    if (actionsUrl) {
-      await openUrl(actionsUrl as string)
-    }
 
     // Reload release info
     await loadReleaseInfo()
