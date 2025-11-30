@@ -69,6 +69,29 @@ impl GitRepository {
 
     /// Checkout a branch
     pub fn checkout_branch(&self, name: &str) -> Result<()> {
+        use git2::Status;
+
+        // Check for uncommitted changes in working directory
+        let statuses = self.repo.statuses(None)?;
+        let has_changes = statuses.iter().any(|entry| {
+            let status = entry.status();
+            status.contains(Status::WT_MODIFIED)
+                || status.contains(Status::WT_DELETED)
+                || status.contains(Status::WT_NEW)
+                || status.contains(Status::INDEX_MODIFIED)
+                || status.contains(Status::INDEX_NEW)
+                || status.contains(Status::INDEX_DELETED)
+        });
+
+        if has_changes {
+            anyhow::bail!(
+                "Cannot checkout branch '{}': You have uncommitted changes. \
+                Please commit or stash your changes first.",
+                name
+            );
+        }
+
+        // Proceed with checkout
         let obj = self.repo.revparse_single(&format!("refs/heads/{}", name))?;
         self.repo.checkout_tree(&obj, None)?;
         self.repo.set_head(&format!("refs/heads/{}", name))?;
@@ -77,6 +100,16 @@ impl GitRepository {
 
     /// Delete a branch
     pub fn delete_branch(&self, name: &str) -> Result<()> {
+        // Check if trying to delete the current branch
+        let current_branch = self.get_current_branch()?;
+        if current_branch == name {
+            anyhow::bail!(
+                "Cannot delete the currently checked out branch '{}'. \
+                Please checkout another branch first.",
+                name
+            );
+        }
+
         let mut branch = self.repo.find_branch(name, BranchType::Local)?;
         branch.delete()?;
         Ok(())

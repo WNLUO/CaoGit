@@ -637,25 +637,82 @@ pub struct UpdateCheckResult {
     pub error: Option<String>,
 }
 
+/// 从 Release 获取实际的下载文件
+async fn get_release_asset_url(version: &str, platform: &str) -> Result<(String, String), String> {
+    let client = reqwest::Client::new();
+    let url = format!("https://api.github.com/repos/wnluo/caogit/releases/tags/v{}", version.trim_start_matches('v'));
+
+    let response = client
+        .get(&url)
+        .header("User-Agent", "CaoGit")
+        .send()
+        .await
+        .map_err(|e| format!("Failed to fetch release info: {}", e))?;
+
+    if !response.status().is_success() {
+        return Err(format!("Release not found: HTTP {}", response.status()));
+    }
+
+    let data: serde_json::Value = response.json().await
+        .map_err(|e| format!("Failed to parse release data: {}", e))?;
+
+    let assets = data["assets"].as_array()
+        .ok_or_else(|| "No assets found in release".to_string())?;
+
+    // 根据平台匹配文件
+    let pattern = match platform {
+        "windows" => vec![".msi", ".exe"], // 优先 MSI, 其次 EXE
+        "macos" => vec![".dmg"],
+        "linux" => vec![".AppImage", ".deb"], // 优先 AppImage, 其次 DEB
+        _ => return Err(format!("Unsupported platform: {}", platform)),
+    };
+
+    for pat in pattern {
+        for asset in assets {
+            if let Some(name) = asset["name"].as_str() {
+                if name.ends_with(pat) && !name.contains("blockmap") {
+                    let download_url = asset["browser_download_url"].as_str()
+                        .ok_or_else(|| "Missing download URL".to_string())?;
+                    return Ok((name.to_string(), download_url.to_string()));
+                }
+            }
+        }
+    }
+
+    Err(format!("No compatible file found for platform: {}", platform))
+}
+
 /// 安装更新（平台特定实现）
 #[tauri::command]
-pub async fn install_update(app: tauri::AppHandle, download_url: String, platform: String, version: String) -> Result<UpdateInstallResult, String> {
+pub async fn install_update(app: tauri::AppHandle, _download_url: String, platform: String, version: String) -> Result<UpdateInstallResult, String> {
     // 获取下载目录
     let download_dir = get_download_directory()?;
 
+    // 动态获取实际的文件名和下载链接
+    let (filename, actual_download_url) = get_release_asset_url(&version, &platform).await?;
+
     match platform.as_str() {
         "windows" => {
-            let filename = format!("CaoGit_{}_x64-setup.msi", version.trim_start_matches('v'));
             let file_path = download_dir.join(&filename);
 
-            // 下载 MSI 文件
-            download_update_file(&app, &download_url, &file_path).await?;
+            // 下载文件
+            download_update_file(&app, &actual_download_url, &file_path).await?;
 
             // 运行 MSI 安装程序（/passive 静默安装，/norestart 不自动重启）
-            std::process::Command::new("msiexec")
-                .args(&["/i", file_path.to_str().unwrap(), "/passive", "/norestart"])
-                .spawn()
-                .map_err(|e| format!("启动安装程序失败: {}", e))?;
+            let file_path_str = file_path.to_str()
+                .ok_or_else(|| "Invalid file path encoding".to_string())?;
+
+            // 根据文件类型选择安装方式
+            if filename.ends_with(".msi") {
+                std::process::Command::new("msiexec")
+                    .args(&["/i", file_path_str, "/passive", "/norestart"])
+                    .spawn()
+                    .map_err(|e| format!("启动安装程序失败: {}", e))?;
+            } else if filename.ends_with(".exe") {
+                std::process::Command::new(file_path_str)
+                    .spawn()
+                    .map_err(|e| format!("启动安装程序失败: {}", e))?;
+            }
 
             Ok(UpdateInstallResult {
                 status: "installing".to_string(),
@@ -664,11 +721,10 @@ pub async fn install_update(app: tauri::AppHandle, download_url: String, platfor
             })
         }
         "macos" => {
-            let filename = format!("CaoGit_{}.dmg", version.trim_start_matches('v'));
             let file_path = download_dir.join(&filename);
 
             // 下载 DMG 文件
-            download_update_file(&app, &download_url, &file_path).await?;
+            download_update_file(&app, &actual_download_url, &file_path).await?;
 
             // 生成修复脚本
             let script_path = download_dir.join("安装CaoGit.command");
@@ -687,12 +743,10 @@ pub async fn install_update(app: tauri::AppHandle, download_url: String, platfor
             })
         }
         "linux" => {
-            // Linux: 检测是 AppImage 还是 DEB
-            let filename = format!("caogit_{}_amd64.AppImage", version.trim_start_matches('v'));
             let file_path = download_dir.join(&filename);
 
-            // 下载 AppImage 文件
-            download_update_file(&app, &download_url, &file_path).await?;
+            // 下载文件
+            download_update_file(&app, &actual_download_url, &file_path).await?;
 
             // 添加执行权限
             #[cfg(unix)]
@@ -709,13 +763,16 @@ pub async fn install_update(app: tauri::AppHandle, download_url: String, platfor
             // 打开下载目录
             let _ = opener::open(&download_dir);
 
+            let msg = if filename.ends_with(".AppImage") {
+                format!("下载完成！AppImage 已添加执行权限，可直接运行。\n\n文件位置: {}", file_path.display())
+            } else {
+                format!("下载完成！请使用包管理器安装 DEB 文件。\n\n文件位置: {}", file_path.display())
+            };
+
             Ok(UpdateInstallResult {
                 status: "downloaded".to_string(),
                 file_path: file_path.to_string_lossy().to_string(),
-                message: format!(
-                    "下载完成！AppImage 已添加执行权限，可直接运行。\n\n文件位置: {}",
-                    file_path.display()
-                ),
+                message: msg,
             })
         }
         _ => {

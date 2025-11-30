@@ -27,7 +27,8 @@ impl RepoCache {
 
     /// Get or open a repository
     pub fn get_or_open(&self, path: &str) -> Result<Repository> {
-        let mut cache = self.cache.lock().unwrap();
+        let mut cache = self.cache.lock()
+            .map_err(|e| anyhow::anyhow!("Failed to acquire cache lock: {}", e))?;
 
         // Check if cached and not expired
         if let Some(entry) = cache.get_mut(path) {
@@ -57,27 +58,31 @@ impl RepoCache {
 
     /// Invalidate cache for a specific path
     pub fn invalidate(&self, path: &str) {
-        let mut cache = self.cache.lock().unwrap();
-        cache.remove(path);
+        if let Ok(mut cache) = self.cache.lock() {
+            cache.remove(path);
+        }
     }
 
     /// Clear all cache
     pub fn clear(&self) {
-        let mut cache = self.cache.lock().unwrap();
-        cache.clear();
+        if let Ok(mut cache) = self.cache.lock() {
+            cache.clear();
+        }
     }
 
     /// Clean up expired entries
     pub fn cleanup(&self) {
-        let mut cache = self.cache.lock().unwrap();
-        let now = Instant::now();
-        cache.retain(|_, entry| now.duration_since(entry.last_accessed) < self.ttl);
+        if let Ok(mut cache) = self.cache.lock() {
+            let now = Instant::now();
+            cache.retain(|_, entry| now.duration_since(entry.last_accessed) < self.ttl);
+        }
     }
 
     /// Get cache size
     pub fn size(&self) -> usize {
-        let cache = self.cache.lock().unwrap();
-        cache.len()
+        self.cache.lock()
+            .map(|cache| cache.len())
+            .unwrap_or(0)
     }
 }
 

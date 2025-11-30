@@ -28,7 +28,10 @@ impl GitRepository {
         let last_update = Arc::new(Mutex::new(std::time::Instant::now()));
 
         callbacks.transfer_progress(move |stats| {
-            let mut last = last_update.lock().unwrap();
+            let mut last = match last_update.lock() {
+                Ok(guard) => guard,
+                Err(_) => return true, // Continue on lock error
+            };
             let now = std::time::Instant::now();
 
             if now.duration_since(*last).as_millis() >= 200 {
@@ -134,6 +137,11 @@ impl GitRepository {
         push_options.remote_callbacks(callbacks);
 
         remote.push(&[&refspec], Some(&mut push_options))?;
+
+        // Set upstream tracking after successful push
+        let mut branch = self.repo.find_branch(branch_name, git2::BranchType::Local)?;
+        branch.set_upstream(Some(&format!("{}/{}", remote_name, branch_name)))?;
+
         Ok(())
     }
 
@@ -177,8 +185,14 @@ impl GitRepository {
         let last_bytes = Arc::new(Mutex::new(0usize));
 
         callbacks.push_transfer_progress(move |current, total, bytes| {
-            let mut last = last_update.lock().unwrap();
-            let mut prev_bytes = last_bytes.lock().unwrap();
+            let mut last = match last_update.lock() {
+                Ok(guard) => guard,
+                Err(_) => return, // Continue on lock error
+            };
+            let mut prev_bytes = match last_bytes.lock() {
+                Ok(guard) => guard,
+                Err(_) => return, // Continue on lock error
+            };
             let now = std::time::Instant::now();
 
             if now.duration_since(*last).as_millis() >= 200 {
@@ -210,6 +224,11 @@ impl GitRepository {
 
         let refspec = format!("refs/heads/{}:refs/heads/{}", branch_name, branch_name);
         remote.push(&[&refspec], Some(&mut push_options))?;
+
+        // Set upstream tracking after successful push
+        let mut branch = self.repo.find_branch(branch_name, git2::BranchType::Local)?;
+        branch.set_upstream(Some(&format!("{}/{}", remote_name, branch_name)))?;
+
         Ok(())
     }
 

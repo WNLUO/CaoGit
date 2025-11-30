@@ -20,19 +20,25 @@ pub fn run() {
             std::thread::spawn(move || {
                 std::thread::sleep(std::time::Duration::from_secs(2));
 
-                let rt = tokio::runtime::Runtime::new().unwrap();
-                rt.block_on(async {
-                    // 使用自定义的更新检查函数
-                    match check_for_updates(None).await {
-                        Ok(result) if result.has_update => {
-                            // 有新版本，通知前端
-                            let _ = handle.emit("update-available", ());
-                        }
-                        _ => {
-                            // 已是最新版本或检查失败，静默处理
-                        }
+                match tokio::runtime::Runtime::new() {
+                    Ok(rt) => {
+                        rt.block_on(async {
+                            // 使用自定义的更新检查函数
+                            match check_for_updates(None).await {
+                                Ok(result) if result.has_update => {
+                                    // 有新版本，通知前端
+                                    let _ = handle.emit("update-available", ());
+                                }
+                                _ => {
+                                    // 已是最新版本或检查失败，静默处理
+                                }
+                            }
+                        });
                     }
-                });
+                    Err(e) => {
+                        eprintln!("Failed to create tokio runtime for update check: {}", e);
+                    }
+                }
             });
 
             Ok(())

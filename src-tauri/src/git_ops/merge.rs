@@ -126,8 +126,10 @@ impl GitRepository {
                 continue;
             };
 
-            let repo_path = self.repo.path().parent().unwrap_or(self.repo.path());
-            let full_path = repo_path.join(&path);
+            // Get working directory safely
+            let workdir = self.repo.workdir()
+                .unwrap_or_else(|| self.repo.path());
+            let full_path = workdir.join(&path);
 
             let mut file_content = String::new();
             if let Ok(mut file) = fs::File::open(&full_path) {
@@ -171,8 +173,24 @@ impl GitRepository {
         use std::fs;
         use std::io::Write;
 
-        let repo_path = self.repo.path().parent().unwrap_or(self.repo.path());
-        let full_path = repo_path.join(path);
+        // Get working directory safely
+        let workdir = self.repo.workdir()
+            .ok_or_else(|| anyhow::anyhow!("Repository has no working directory"))?;
+
+        let full_path = workdir.join(path);
+
+        // Validate path is within repository bounds
+        let canonical_workdir = workdir.canonicalize()
+            .context("Failed to resolve repository working directory")?;
+
+        // For conflict resolution, we're creating/overwriting the file, so use parent dir check
+        if let Some(parent) = full_path.parent() {
+            if let Ok(canonical_parent) = parent.canonicalize() {
+                if !canonical_parent.starts_with(&canonical_workdir) {
+                    anyhow::bail!("File path is outside repository: {}", path);
+                }
+            }
+        }
 
         let mut file = fs::File::create(&full_path)
             .context(format!("Failed to open file for writing: {}", path))?;

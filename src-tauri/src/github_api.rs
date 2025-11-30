@@ -52,7 +52,7 @@ impl GitHubClient {
         let client = reqwest::Client::builder()
             .user_agent("GitManager/0.1.0")
             .build()
-            .unwrap();
+            .unwrap_or_else(|_| reqwest::Client::new());
 
         Self { token, client }
     }
@@ -72,13 +72,14 @@ impl GitHubClient {
         // 格式: https://token@github.com 或 https://username:password@github.com
         if url.starts_with("https://") || url.starts_with("http://") {
             let protocol = if url.starts_with("https://") { "https://" } else { "http://" };
-            let without_protocol = url.strip_prefix(protocol).unwrap();
 
-            // 检查是否包含 @ 符号 (认证信息)
-            if let Some(at_pos) = without_protocol.find('@') {
-                // 移除 @ 之前的所有内容 (token 或 username:password)
-                let cleaned = &without_protocol[at_pos + 1..];
-                url = format!("{}{}", protocol, cleaned);
+            if let Some(without_protocol) = url.strip_prefix(protocol) {
+                // 检查是否包含 @ 符号 (认证信息)
+                if let Some(at_pos) = without_protocol.find('@') {
+                    // 移除 @ 之前的所有内容 (token 或 username:password)
+                    let cleaned = &without_protocol[at_pos + 1..];
+                    url = format!("{}{}", protocol, cleaned);
+                }
             }
         }
 

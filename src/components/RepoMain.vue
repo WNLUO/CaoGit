@@ -17,6 +17,8 @@ defineProps<{
 const leftPanelWidth = ref(320);
 const rightPanelTopHeight = ref(60); // 百分比
 let refreshInterval: number | null = null;
+let isUserOperating = ref(false);
+let lastOperationTime = 0;
 
 const historyFilterOptions = ref<FilterOptions>({
   searchText: '',
@@ -49,16 +51,36 @@ watch(() => repoStore.activeRepo, (newRepo) => {
 
 function startAutoRefresh() {
   if (repoStore.activeRepo) {
-    // 每3秒自动刷新一次文件状态
+    // 每5秒自动刷新一次文件状态 (增加间隔减少冲突)
     refreshInterval = window.setInterval(() => {
-      if (repoStore.activeRepo) {
-        repoStore.refreshStatus().catch(error => {
-          console.error('Auto-refresh failed:', error);
-        });
+      if (repoStore.activeRepo && !isUserOperating.value) {
+        // Only refresh if user hasn't operated recently (within last 2 seconds)
+        const timeSinceLastOp = Date.now() - lastOperationTime;
+        if (timeSinceLastOp > 2000) {
+          repoStore.refreshStatus().catch(error => {
+            console.error('Auto-refresh failed:', error);
+          });
+        }
       }
-    }, 3000);
+    }, 5000); // Increased from 3s to 5s
   }
 }
+
+// Track user operations to prevent refresh conflicts
+// This function should be called when user performs operations like stage/unstage
+// For now, we'll export it for future use
+const markUserOperation = () => {
+  lastOperationTime = Date.now();
+  isUserOperating.value = true;
+
+  // Reset after 2 seconds
+  setTimeout(() => {
+    isUserOperating.value = false;
+  }, 2000);
+};
+
+// Export for potential use by child components
+defineExpose({ markUserOperation });
 
 function stopAutoRefresh() {
   if (refreshInterval !== null) {

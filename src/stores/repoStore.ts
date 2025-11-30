@@ -36,6 +36,8 @@ export const repoStore = reactive({
     selectedFile: null as FileChange | null,
     isLoading: false,
     error: null as string | null,
+    hasConflicts: false,
+    conflicts: [] as any[],
 
     async loadRepoData(repo: Repository) {
         this.activeRepo = repo;
@@ -87,8 +89,27 @@ export const repoStore = reactive({
         const response = await GitApi.getRepositoryStatus(this.activeRepo.path);
         if (response.success && response.data) {
             this.fileChanges = response.data;
+
+            // Check for conflicts after status update
+            await this.checkConflicts();
         } else {
             throw new Error(response.error || 'Failed to get repository status');
+        }
+    },
+
+    async checkConflicts() {
+        if (!this.activeRepo) return;
+
+        try {
+            const response = await GitApi.getConflicts(this.activeRepo.path);
+            if (response.success && response.data) {
+                this.conflicts = response.data;
+                this.hasConflicts = response.data.length > 0;
+            }
+        } catch (error) {
+            // Silently fail - conflicts check is optional
+            this.hasConflicts = false;
+            this.conflicts = [];
         }
     },
 
@@ -117,7 +138,9 @@ export const repoStore = reactive({
         const response = await GitApi.getCommits(this.activeRepo.path, maxCount);
         if (response.success && response.data) {
             this.commits = offset === 0 ? response.data : [...this.commits, ...response.data];
-            cacheService.set(cacheKey, response.data, 30000); // Cache for 30s
+            // Increase cache TTL for commits from 30s to 5 minutes (300000ms)
+            // Commits are immutable, so longer caching is safe
+            cacheService.set(cacheKey, response.data, 300000);
         } else {
             throw new Error(response.error || 'Failed to get commits');
         }
@@ -231,8 +254,9 @@ export const repoStore = reactive({
             const repo = this.repositories[index];
             this.repositories.splice(index, 1);
             saveRepositories(this.repositories);
-            // Clear cache for this repo
-            cacheService.invalidatePattern(`.*:${repo.path}:.*`);
+            // Clear cache for this repo - escape special regex characters
+            const escapedPath = repo.path.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            cacheService.invalidatePattern(`.*:${escapedPath}:.*`);
         }
     },
 
@@ -251,7 +275,9 @@ export const repoStore = reactive({
     // Clear cache for active repo
     clearCache() {
         if (this.activeRepo) {
-            cacheService.invalidatePattern(`.*:${this.activeRepo.path}:.*`);
+            // Escape special regex characters in path
+            const escapedPath = this.activeRepo.path.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            cacheService.invalidatePattern(`.*:${escapedPath}:.*`);
         }
     },
 

@@ -33,9 +33,23 @@ impl GitRepository {
     /// Get diff for a new (untracked) file
     fn get_new_file_diff(&self, file_path: &str) -> Result<DiffResult> {
         use std::fs;
-        use std::path::PathBuf;
 
-        let file_full_path = PathBuf::from(self.repo.path().parent().unwrap()).join(file_path);
+        // Safely get repository working directory
+        let workdir = self.repo.workdir()
+            .ok_or_else(|| anyhow::anyhow!("Repository has no working directory"))?;
+
+        let file_full_path = workdir.join(file_path);
+
+        // Validate that the file path is within the repository (prevent path traversal)
+        let canonical_file = file_full_path.canonicalize()
+            .context(format!("Failed to resolve file path: {}", file_path))?;
+        let canonical_workdir = workdir.canonicalize()
+            .context("Failed to resolve repository working directory")?;
+
+        if !canonical_file.starts_with(&canonical_workdir) {
+            anyhow::bail!("File path is outside repository: {}", file_path);
+        }
+
         let content = fs::read_to_string(&file_full_path)
             .context(format!("Failed to read file: {}", file_path))?;
 

@@ -83,6 +83,17 @@ impl GitRepository {
             .ok_or_else(|| anyhow::anyhow!("Repository has no working directory"))?;
         let full_path = workdir.join(path_obj);
 
+        // Validate path is within repository bounds
+        if let Ok(canonical_file) = full_path.canonicalize() {
+            let canonical_workdir = workdir.canonicalize()
+                .context("Failed to resolve repository working directory")?;
+
+            if !canonical_file.starts_with(&canonical_workdir) {
+                anyhow::bail!("File path is outside repository: {}", path);
+            }
+        }
+        // If canonicalize fails, file doesn't exist, will be handled below
+
         if full_path.exists() {
             index.add_path(path_obj)?;
         } else {
@@ -95,30 +106,42 @@ impl GitRepository {
 
     /// Unstage a file
     pub fn unstage_file(&self, path: &str) -> Result<()> {
-        let head = self.repo.head()?;
-        let head_commit = head.peel_to_commit()?;
-        let head_tree = head_commit.tree()?;
-
         let mut index = self.repo.index()?;
-        let entry = head_tree.get_path(Path::new(path));
 
-        if let Ok(entry) = entry {
-            index.add(&git2::IndexEntry {
-                ctime: git2::IndexTime::new(0, 0),
-                mtime: git2::IndexTime::new(0, 0),
-                dev: 0,
-                ino: 0,
-                mode: entry.filemode() as u32,
-                uid: 0,
-                gid: 0,
-                file_size: 0,
-                id: entry.id(),
-                flags: 0,
-                flags_extended: 0,
-                path: path.as_bytes().to_vec(),
-            })?;
-        } else {
-            index.remove_path(Path::new(path))?;
+        // Try to get HEAD - if it fails, this is a new repository with no commits
+        match self.repo.head() {
+            Ok(head) => {
+                // Repository has commits, unstage by resetting to HEAD state
+                let head_commit = head.peel_to_commit()?;
+                let head_tree = head_commit.tree()?;
+
+                let entry = head_tree.get_path(Path::new(path));
+
+                if let Ok(entry) = entry {
+                    // File exists in HEAD, restore it to index
+                    index.add(&git2::IndexEntry {
+                        ctime: git2::IndexTime::new(0, 0),
+                        mtime: git2::IndexTime::new(0, 0),
+                        dev: 0,
+                        ino: 0,
+                        mode: entry.filemode() as u32,
+                        uid: 0,
+                        gid: 0,
+                        file_size: 0,
+                        id: entry.id(),
+                        flags: 0,
+                        flags_extended: 0,
+                        path: path.as_bytes().to_vec(),
+                    })?;
+                } else {
+                    // File doesn't exist in HEAD, remove from index
+                    index.remove_path(Path::new(path))?;
+                }
+            }
+            Err(_) => {
+                // No HEAD (new repository), simply remove from index
+                index.remove_path(Path::new(path))?;
+            }
         }
 
         index.write()?;
@@ -127,6 +150,23 @@ impl GitRepository {
 
     /// Discard changes to a file (restore to HEAD state)
     pub fn discard_file(&self, path: &str) -> Result<()> {
+        // Validate path is within repository
+        let workdir = self.repo.workdir()
+            .ok_or_else(|| anyhow::anyhow!("Repository has no working directory"))?;
+
+        let file_path = workdir.join(path);
+
+        // Check if file path is within repository bounds
+        if let Ok(canonical_file) = file_path.canonicalize() {
+            let canonical_workdir = workdir.canonicalize()
+                .context("Failed to resolve repository working directory")?;
+
+            if !canonical_file.starts_with(&canonical_workdir) {
+                anyhow::bail!("File path is outside repository: {}", path);
+            }
+        }
+        // If canonicalize fails (file doesn't exist), that's ok for discard
+
         let head = self.repo.head()?;
         let head_commit = head.peel_to_commit()?;
         let head_tree = head_commit.tree()?;
@@ -189,14 +229,17 @@ impl GitRepository {
             let oid = oid?;
             let commit = self.repo.find_commit(oid)?;
 
+            let timestamp = commit.time().seconds();
+            let date = DateTime::<Utc>::from_timestamp(timestamp, 0)
+                .map(|dt| dt.to_rfc3339())
+                .unwrap_or_else(|| format!("Invalid timestamp: {}", timestamp));
+
             commits.push(CommitInfo {
                 hash: oid.to_string(),
                 message: commit.message().unwrap_or("").to_string(),
                 author: commit.author().name().unwrap_or("").to_string(),
                 email: commit.author().email().unwrap_or("").to_string(),
-                date: DateTime::<Utc>::from_timestamp(commit.time().seconds(), 0)
-                    .unwrap()
-                    .to_rfc3339(),
+                date,
                 parents: commit.parents().map(|p| p.id().to_string()).collect(),
             });
         }
@@ -226,14 +269,17 @@ impl GitRepository {
             let oid = oid?;
             let commit = self.repo.find_commit(oid)?;
 
+            let timestamp = commit.time().seconds();
+            let date = DateTime::<Utc>::from_timestamp(timestamp, 0)
+                .map(|dt| dt.to_rfc3339())
+                .unwrap_or_else(|| format!("Invalid timestamp: {}", timestamp));
+
             commits.push(CommitInfo {
                 hash: oid.to_string(),
                 message: commit.message().unwrap_or("").to_string(),
                 author: commit.author().name().unwrap_or("").to_string(),
                 email: commit.author().email().unwrap_or("").to_string(),
-                date: DateTime::<Utc>::from_timestamp(commit.time().seconds(), 0)
-                    .unwrap()
-                    .to_rfc3339(),
+                date,
                 parents: commit.parents().map(|p| p.id().to_string()).collect(),
             });
         }
