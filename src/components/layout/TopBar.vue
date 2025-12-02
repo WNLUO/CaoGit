@@ -16,6 +16,7 @@ const emit = defineEmits<{
 }>();
 
 const currentBranch = computed(() => repoStore.currentBranch);
+const syncStatus = computed(() => repoStore.syncStatus);
 const isPushing = ref(false);
 const isPulling = ref(false);
 const isFetching = ref(false);
@@ -24,6 +25,22 @@ const showPublishModal = ref(false);
 const showReleaseManager = ref(false);
 const hasRemote = ref(false);
 const isGitHubRepo = ref(false);
+
+// Compute sync status display
+const syncStatusDisplay = computed(() => {
+  if (!syncStatus.value) return null;
+  const { ahead, behind } = syncStatus.value;
+
+  if (ahead === 0 && behind === 0) {
+    return { icon: '✓', text: '已同步', class: 'synced' };
+  } else if (ahead > 0 && behind === 0) {
+    return { icon: '↑', text: `${ahead}`, class: 'ahead' };
+  } else if (ahead === 0 && behind > 0) {
+    return { icon: '↓', text: `${behind}`, class: 'behind' };
+  } else {
+    return { icon: '↑↓', text: `${ahead} ${behind}`, class: 'diverged' };
+  }
+});
 
 // 进度条状态
 const showProgress = ref(false);
@@ -127,16 +144,27 @@ async function handlePush() {
   await new Promise(resolve => setTimeout(resolve, 50));
 
   try {
+    // 获取当前仓库的认证配置
+    const authConfig = repoStore.activeRepo ? {
+      authType: repoStore.activeRepo.authType || 'none',
+      token: repoStore.activeRepo.token,
+      username: repoStore.activeRepo.username,
+      password: repoStore.activeRepo.password
+    } : undefined;
+
     const response = await GitApi.push(
       repoStore.activeRepo.path,
       'origin',
-      currentBranch.value
+      currentBranch.value,
+      authConfig
     );
 
     if (response.success) {
       progressMessage.value = 'Push 成功!';
       // 延迟一下让用户看到成功消息
       await new Promise(resolve => setTimeout(resolve, 800));
+      // Refresh sync status after push
+      await repoStore.refreshSyncStatus();
     } else {
       // 只在失败时显示 toast
       toastStore.error('Push 失败: ' + response.error);
@@ -166,12 +194,22 @@ async function handleFetch() {
   await new Promise(resolve => setTimeout(resolve, 50));
 
   try {
-    const response = await GitApi.fetch(repoStore.activeRepo.path, 'origin');
+    // 获取当前仓库的认证配置
+    const authConfig = repoStore.activeRepo ? {
+      authType: repoStore.activeRepo.authType || 'none',
+      token: repoStore.activeRepo.token,
+      username: repoStore.activeRepo.username,
+      password: repoStore.activeRepo.password
+    } : undefined;
+
+    const response = await GitApi.fetch(repoStore.activeRepo.path, 'origin', authConfig);
 
     if (response.success) {
       progressMessage.value = 'Fetch 成功!';
       // 延迟一下让用户看到成功消息
       await new Promise(resolve => setTimeout(resolve, 800));
+      // Refresh sync status after fetch
+      await repoStore.refreshSyncStatus();
     } else {
       // 只在失败时显示 toast
       toastStore.error('Fetch 失败: ' + response.error);
@@ -285,9 +323,15 @@ async function createNewBranch() {
           </div>
         </div>
       </div>
+
+      <!-- Sync Status Display -->
+      <div v-if="syncStatusDisplay" :class="['sync-status', syncStatusDisplay.class]" :title="`领先: ${syncStatus?.ahead || 0} 提交, 落后: ${syncStatus?.behind || 0} 提交`">
+        <span class="sync-icon">{{ syncStatusDisplay.icon }}</span>
+        <span class="sync-text">{{ syncStatusDisplay.text }}</span>
+      </div>
     </div>
 
-  
+
     <div class="actions">
       <!-- Theme Toggle -->
       <ThemeToggle />
@@ -533,6 +577,52 @@ async function createNewBranch() {
 
 .branch-item.active .branch-icon {
   color: var(--accent-color);
+}
+
+/* Sync Status Styles */
+.sync-status {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  margin-left: var(--spacing-sm);
+  border: 1px solid var(--border-color);
+}
+
+.sync-status.synced {
+  background-color: rgba(34, 197, 94, 0.1);
+  color: rgb(22, 163, 74);
+  border-color: rgba(34, 197, 94, 0.3);
+}
+
+.sync-status.ahead {
+  background-color: rgba(59, 130, 246, 0.1);
+  color: rgb(37, 99, 235);
+  border-color: rgba(59, 130, 246, 0.3);
+}
+
+.sync-status.behind {
+  background-color: rgba(251, 146, 60, 0.1);
+  color: rgb(234, 88, 12);
+  border-color: rgba(251, 146, 60, 0.3);
+}
+
+.sync-status.diverged {
+  background-color: rgba(244, 63, 94, 0.1);
+  color: rgb(225, 29, 72);
+  border-color: rgba(244, 63, 94, 0.3);
+}
+
+.sync-icon {
+  font-size: 14px;
+  line-height: 1;
+}
+
+.sync-text {
+  font-size: var(--font-size-xs);
 }
 
 .actions {

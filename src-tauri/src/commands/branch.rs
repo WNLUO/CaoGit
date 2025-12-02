@@ -2,7 +2,7 @@
 //!
 //! Commands for branch management operations.
 
-use crate::git_ops::{GitRepository, BranchInfo};
+use crate::git_ops::{GitRepository, BranchInfo, SyncStatus};
 use super::response::ApiResponse;
 
 /// Get all branches
@@ -59,6 +59,18 @@ pub fn get_current_branch(repo_path: String) -> ApiResponse<String> {
     match GitRepository::open(&repo_path) {
         Ok(repo) => match repo.get_current_branch() {
             Ok(branch) => ApiResponse::success(branch),
+            Err(e) => ApiResponse::error(e.to_string()),
+        },
+        Err(e) => ApiResponse::error(e.to_string()),
+    }
+}
+
+/// Get sync status (ahead/behind) for a branch
+#[tauri::command]
+pub fn get_sync_status(repo_path: String, branch_name: String) -> ApiResponse<SyncStatus> {
+    match GitRepository::open(&repo_path) {
+        Ok(repo) => match repo.get_ahead_behind(&branch_name) {
+            Ok(status) => ApiResponse::success(status),
             Err(e) => ApiResponse::error(e.to_string()),
         },
         Err(e) => ApiResponse::error(e.to_string()),

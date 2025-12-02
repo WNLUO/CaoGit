@@ -8,7 +8,7 @@ use anyhow::Result;
 use tauri::Emitter;
 
 use super::repository::GitRepository;
-use super::types::{RemoteInfo, GitProgress};
+use super::types::{RemoteInfo, GitProgress, AuthConfig};
 
 impl GitRepository {
     /// Fetch from a remote (without progress)
@@ -20,7 +20,7 @@ impl GitRepository {
     }
 
     /// Fetch from a remote with progress reporting and timeout
-    pub fn fetch_with_progress(&self, remote_name: &str, window: tauri::Window) -> Result<()> {
+    pub fn fetch_with_progress(&self, remote_name: &str, window: tauri::Window, auth_config: Option<AuthConfig>) -> Result<()> {
         let mut remote = self.repo.find_remote(remote_name)?;
 
         let mut callbacks = RemoteCallbacks::new();
@@ -70,16 +70,40 @@ impl GitRepository {
             true
         });
 
+        // Clone auth_config for use in the callback
+        let auth_config_clone = auth_config.clone();
+
         // 添加认证回调，支持 SSH 和 HTTPS
-        callbacks.credentials(|_url, username_from_url, allowed_types| {
-            // 优先尝试 SSH agent
+        callbacks.credentials(move |_url, username_from_url, allowed_types| {
+            // 0. 优先使用用户配置的认证信息
+            if let Some(ref auth) = auth_config_clone {
+                // Token 认证
+                if auth.auth_type == "token" && allowed_types.is_user_pass_plaintext() {
+                    if let Some(ref token) = auth.token {
+                        let username = auth.username.as_deref().unwrap_or("git");
+                        if let Ok(cred) = Cred::userpass_plaintext(username, token) {
+                            return Ok(cred);
+                        }
+                    }
+                }
+                // 用户名/密码认证
+                if auth.auth_type == "password" && allowed_types.is_user_pass_plaintext() {
+                    if let (Some(ref username), Some(ref password)) = (&auth.username, &auth.password) {
+                        if let Ok(cred) = Cred::userpass_plaintext(username, password) {
+                            return Ok(cred);
+                        }
+                    }
+                }
+            }
+
+            // 1. 尝试 SSH agent
             if allowed_types.is_ssh_key() {
                 if let Some(username) = username_from_url {
                     return Cred::ssh_key_from_agent(username);
                 }
                 return Cred::ssh_key_from_agent("git");
             }
-            // 回退到默认凭据（用于 HTTPS）
+            // 2. 回退到默认凭据（用于 HTTPS）
             Cred::default()
         });
 
@@ -116,8 +140,8 @@ impl GitRepository {
     }
 
     /// Pull from a remote with progress reporting
-    pub fn pull_with_progress(&self, remote_name: &str, branch_name: &str, window: tauri::Window) -> Result<()> {
-        self.fetch_with_progress(remote_name, window)?;
+    pub fn pull_with_progress(&self, remote_name: &str, branch_name: &str, window: tauri::Window, auth_config: Option<AuthConfig>) -> Result<()> {
+        self.fetch_with_progress(remote_name, window, auth_config)?;
 
         let fetch_head = self.repo.find_reference("FETCH_HEAD")?;
         let fetch_commit = self.repo.reference_to_annotated_commit(&fetch_head)?;
@@ -141,7 +165,7 @@ impl GitRepository {
 
     /// Push to a remote (without progress)
     #[allow(dead_code)]
-    pub fn push(&self, remote_name: &str, branch_name: &str) -> Result<()> {
+    pub fn push(&self, remote_name: &str, branch_name: &str, auth_config: Option<AuthConfig>) -> Result<()> {
         let mut remote = self.repo.find_remote(remote_name)?;
         let remote_url = remote.url().unwrap_or("unknown");
         eprintln!("📡 Push to remote: {} ({})", remote_name, remote_url);
@@ -150,31 +174,90 @@ impl GitRepository {
 
         let mut callbacks = RemoteCallbacks::new();
 
+        // 添加重试计数器，避免无限重试
+        let retry_count = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let retry_count_clone = retry_count.clone();
+
+        // Clone auth_config for use in the callback
+        let auth_config_clone = auth_config.clone();
+
         // 添加详细的认证日志和多重回退机制
         callbacks.credentials(move |url, username_from_url, allowed_types| {
-            eprintln!("🔐 Credentials requested:");
+            let count = retry_count_clone.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+
+            // 限制最多重试 3 次
+            if count >= 3 {
+                eprintln!("❌ 认证失败，已尝试 {} 次", count);
+                eprintln!("   这通常意味着：");
+                eprintln!("   1. 您的 SSH 密钥未在远程服务器上授权");
+                eprintln!("   2. 或者 SSH agent 中的密钥与 GitHub 上的不匹配");
+                eprintln!("   ");
+                eprintln!("   请尝试运行：ssh -T git@github.com");
+                return Err(git2::Error::from_str("认证失败，已尝试 3 次"));
+            }
+
+            eprintln!("🔐 请求凭据（第 {} 次尝试）：", count + 1);
             eprintln!("   URL: {}", url);
-            eprintln!("   Username from URL: {:?}", username_from_url);
-            eprintln!("   Allowed types: {:?}", allowed_types);
+            eprintln!("   URL 中的用户名：{:?}", username_from_url);
+            eprintln!("   允许的认证类型：{:?}", allowed_types);
+
+            // 0. 优先使用用户配置的认证信息
+            if let Some(ref auth) = auth_config_clone {
+                eprintln!("   检测到用户配置的认证信息，类型：{}", auth.auth_type);
+
+                // 如果是 token 认证且允许 HTTPS 认证
+                if auth.auth_type == "token" && allowed_types.is_user_pass_plaintext() {
+                    if let Some(ref token) = auth.token {
+                        eprintln!("   正在使用配置的 Token 认证...");
+                        // GitHub/GitLab 使用 token 作为密码，用户名可以是任意值（通常是 "git" 或实际用户名）
+                        let username = auth.username.as_deref().unwrap_or("git");
+                        match Cred::userpass_plaintext(username, token) {
+                            Ok(cred) => {
+                                eprintln!("   ✅ 已使用配置的 Token 创建凭据");
+                                return Ok(cred);
+                            }
+                            Err(e) => {
+                                eprintln!("   ❌ Token 认证失败：{}", e);
+                            }
+                        }
+                    }
+                }
+
+                // 如果是用户名/密码认证且允许 HTTPS 认证
+                if auth.auth_type == "password" && allowed_types.is_user_pass_plaintext() {
+                    if let (Some(ref username), Some(ref password)) = (&auth.username, &auth.password) {
+                        eprintln!("   正在使用配置的用户名/密码认证...");
+                        match Cred::userpass_plaintext(username, password) {
+                            Ok(cred) => {
+                                eprintln!("   ✅ 已使用配置的用户名/密码创建凭据");
+                                return Ok(cred);
+                            }
+                            Err(e) => {
+                                eprintln!("   ❌ 用户名/密码认证失败：{}", e);
+                            }
+                        }
+                    }
+                }
+            }
 
             // 1. 尝试 SSH key from agent（最常用）
             if allowed_types.is_ssh_key() {
-                eprintln!("   Trying SSH key from agent...");
+                eprintln!("   正在尝试从 SSH agent 获取密钥...");
                 let username = username_from_url.unwrap_or("git");
                 match Cred::ssh_key_from_agent(username) {
                     Ok(cred) => {
-                        eprintln!("   ✅ SSH agent credential obtained");
+                        eprintln!("   ✅ 已从 SSH agent 获取凭据");
                         return Ok(cred);
                     }
                     Err(e) => {
-                        eprintln!("   ❌ SSH agent failed: {}", e);
+                        eprintln!("   ❌ SSH agent 失败：{}", e);
                     }
                 }
             }
 
             // 2. 尝试从默认位置读取 SSH 密钥
             if allowed_types.is_ssh_key() {
-                eprintln!("   Trying SSH key from ~/.ssh/id_rsa...");
+                eprintln!("   正在尝试从 ~/.ssh/id_rsa 读取密钥...");
                 let username = username_from_url.unwrap_or("git");
                 match std::env::var("HOME") {
                     Ok(home) => {
@@ -182,36 +265,36 @@ impl GitRepository {
                         let public_key = format!("{}/.ssh/id_rsa.pub", home);
                         match Cred::ssh_key(username, Some(std::path::Path::new(&public_key)), std::path::Path::new(&private_key), None) {
                             Ok(cred) => {
-                                eprintln!("   ✅ SSH key from ~/.ssh obtained");
+                                eprintln!("   ✅ 已从 ~/.ssh 获取密钥");
                                 return Ok(cred);
                             }
                             Err(e) => {
-                                eprintln!("   ❌ SSH key from file failed: {}", e);
+                                eprintln!("   ❌ 从文件读取 SSH 密钥失败：{}", e);
                             }
                         }
                     }
                     Err(_) => {
-                        eprintln!("   ❌ HOME environment variable not set");
+                        eprintln!("   ❌ 未设置 HOME 环境变量");
                     }
                 }
             }
 
             // 3. 尝试默认凭据（用于 HTTPS）
             if allowed_types.is_user_pass_plaintext() {
-                eprintln!("   Trying default credentials (HTTPS)...");
+                eprintln!("   正在尝试默认凭据（HTTPS）...");
                 match Cred::default() {
                     Ok(cred) => {
-                        eprintln!("   ✅ Default credential obtained");
+                        eprintln!("   ✅ 已获取默认凭据");
                         return Ok(cred);
                     }
                     Err(e) => {
-                        eprintln!("   ❌ Default credential failed: {}", e);
+                        eprintln!("   ❌ 默认凭据失败：{}", e);
                     }
                 }
             }
 
-            eprintln!("   ❌ All authentication methods failed");
-            Err(git2::Error::from_str("No valid authentication method available"))
+            eprintln!("   ❌ 所有认证方法都失败了");
+            Err(git2::Error::from_str("没有可用的有效认证方法"))
         });
 
         let mut push_options = PushOptions::new();
@@ -250,6 +333,7 @@ impl GitRepository {
     }
 
     /// Push to a remote with progress reporting and timeout
+    #[allow(dead_code)]
     pub fn push_with_progress(&self, remote_name: &str, branch_name: &str, window: tauri::Window) -> Result<()> {
         let mut remote = self.repo.find_remote(remote_name)?;
 

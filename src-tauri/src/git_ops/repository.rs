@@ -7,7 +7,7 @@ use std::path::Path;
 use anyhow::{Context, Result};
 use chrono::{DateTime, Utc};
 
-use super::types::{FileChange, CommitInfo};
+use super::types::{FileChange, CommitInfo, SyncStatus};
 
 /// Main struct for Git repository operations
 pub struct GitRepository {
@@ -285,5 +285,28 @@ impl GitRepository {
         }
 
         Ok(commits)
+    }
+
+    /// Get ahead/behind status compared to upstream branch
+    pub fn get_ahead_behind(&self, branch_name: &str) -> Result<SyncStatus> {
+        // 获取本地分支
+        let local_branch = self.repo.find_branch(branch_name, git2::BranchType::Local)
+            .context("找不到本地分支")?;
+
+        // 获取上游分支
+        let upstream_branch = local_branch.upstream()
+            .context("该分支没有设置上游分支")?;
+
+        // 获取本地和上游的 commit ID
+        let local_oid = local_branch.get().target()
+            .context("无法获取本地分支的 commit ID")?;
+        let upstream_oid = upstream_branch.get().target()
+            .context("无法获取上游分支的 commit ID")?;
+
+        // 使用 graph_ahead_behind 计算领先和落后的提交数
+        let (ahead, behind) = self.repo.graph_ahead_behind(local_oid, upstream_oid)
+            .context("无法计算分支差异")?;
+
+        Ok(SyncStatus { ahead, behind })
     }
 }

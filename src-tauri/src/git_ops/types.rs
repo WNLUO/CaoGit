@@ -114,3 +114,20 @@ pub struct GitProgress {
     pub received_bytes: u64,
     pub speed_bytes_per_sec: u64,
 }
+
+/// Authentication configuration for Git operations
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AuthConfig {
+    #[serde(rename = "authType")]
+    pub auth_type: String,  // "none", "token", "password"
+    pub token: Option<String>,
+    pub username: Option<String>,
+    pub password: Option<String>,
+}
+
+/// Sync status between local and remote branches
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SyncStatus {
+    pub ahead: usize,   // 本地领先远程的提交数
+    pub behind: usize,  // 本地落后远程的提交数
+}

@@ -1,6 +1,6 @@
 import { reactive } from 'vue';
 import type { Repository, FileChange, Commit } from '../types';
-import { GitApi } from '../services/gitApi';
+import { GitApi, type SyncStatus } from '../services/gitApi';
 import { cacheService } from '../services/cacheService';
 
 // Load repositories from localStorage
@@ -38,6 +38,7 @@ export const repoStore = reactive({
     error: null as string | null,
     hasConflicts: false,
     conflicts: [] as any[],
+    syncStatus: null as SyncStatus | null,
 
     async loadRepoData(repo: Repository) {
         this.activeRepo = repo;
@@ -65,12 +66,15 @@ export const repoStore = reactive({
                     this.refreshCommits(),
                     this.refreshCurrentBranch()
                 ]);
+                // Load sync status after current branch is set
+                await this.refreshSyncStatus();
             } catch (error: any) {
                 // This is expected for newly initialized repos with no commits
                 if (error.message?.includes('reference') || error.message?.includes('not found')) {
                     console.log('New repository with no commits yet');
                     this.commits = [];
                     this.currentBranch = 'main'; // Default branch name
+                    this.syncStatus = null;
                 } else {
                     throw error;
                 }
@@ -155,6 +159,20 @@ export const repoStore = reactive({
         }
     },
 
+    async refreshSyncStatus() {
+        if (!this.activeRepo || !this.currentBranch) return;
+
+        try {
+            const response = await GitApi.getSyncStatus(this.activeRepo.path, this.currentBranch);
+            if (response.success && response.data) {
+                this.syncStatus = response.data;
+            }
+        } catch (error) {
+            // Silently fail - sync status is optional (branch might not have upstream)
+            this.syncStatus = null;
+        }
+    },
+
     async stageFile(filePath: string) {
         if (!this.activeRepo) return;
 
@@ -196,7 +214,8 @@ export const repoStore = reactive({
             // Parallel refresh for better performance
             await Promise.all([
                 this.refreshStatus(),
-                this.refreshCommits()
+                this.refreshCommits(),
+                this.refreshSyncStatus()
             ]);
             return response.data;
         } else {
@@ -227,6 +246,8 @@ export const repoStore = reactive({
                 this.refreshCommits(),
                 this.refreshCurrentBranch()
             ]);
+            // Refresh sync status after branch change
+            await this.refreshSyncStatus();
         } else {
             throw new Error(response.error || 'Failed to checkout branch');
         }

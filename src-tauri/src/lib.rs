@@ -64,6 +64,7 @@ pub fn run() {
             checkout_branch,
             delete_branch,
             get_current_branch,
+            get_sync_status,
             fetch_remote,
             pull_remote,
             push_remote,

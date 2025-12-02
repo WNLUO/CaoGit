@@ -150,7 +150,7 @@ pub async fn publish_new_release(
 
         // 先推送提交
         println!("正在推送提交到 origin/{}...", current_branch);
-        repo.push("origin", &current_branch)
+        repo.push("origin", &current_branch, None)
             .map_err(|e| {
                 eprintln!("推送提交失败: {}", e);
                 format!("推送提交失败: {}。请确保已配置 Git 认证（SSH 密钥或凭据管理器）", e)

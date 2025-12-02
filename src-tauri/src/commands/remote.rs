@@ -3,15 +3,15 @@
 //! Commands for remote repository operations.
 
 use tauri::Window;
-use crate::git_ops::{GitRepository, RemoteInfo};
+use crate::git_ops::{GitRepository, RemoteInfo, AuthConfig};
 use super::response::ApiResponse;
 
 /// Fetch from a remote (异步执行，不阻塞主线程)
 #[tauri::command]
-pub async fn fetch_remote(window: Window, repo_path: String, remote_name: String) -> ApiResponse<String> {
+pub async fn fetch_remote(window: Window, repo_path: String, remote_name: String, auth_config: Option<AuthConfig>) -> ApiResponse<String> {
     let handle = tokio::task::spawn(async move {
         match GitRepository::open(&repo_path) {
-            Ok(repo) => match repo.fetch_with_progress(&remote_name, window) {
+            Ok(repo) => match repo.fetch_with_progress(&remote_name, window, auth_config) {
                 Ok(_) => ApiResponse::success("Fetch completed".to_string()),
                 Err(e) => ApiResponse::error(e.to_string()),
             },
@@ -27,10 +27,10 @@ pub async fn fetch_remote(window: Window, repo_path: String, remote_name: String
 
 /// Pull from a remote (异步执行，不阻塞主线程)
 #[tauri::command]
-pub async fn pull_remote(window: Window, repo_path: String, remote_name: String, branch_name: String) -> ApiResponse<String> {
+pub async fn pull_remote(window: Window, repo_path: String, remote_name: String, branch_name: String, auth_config: Option<AuthConfig>) -> ApiResponse<String> {
     let handle = tokio::task::spawn(async move {
         match GitRepository::open(&repo_path) {
-            Ok(repo) => match repo.pull_with_progress(&remote_name, &branch_name, window) {
+            Ok(repo) => match repo.pull_with_progress(&remote_name, &branch_name, window, auth_config) {
                 Ok(_) => ApiResponse::success("Pull completed".to_string()),
                 Err(e) => ApiResponse::error(e.to_string()),
             },
@@ -46,8 +46,13 @@ pub async fn pull_remote(window: Window, repo_path: String, remote_name: String,
 
 /// Push to a remote (异步执行，不阻塞主线程)
 #[tauri::command]
-pub async fn push_remote(_window: Window, repo_path: String, remote_name: String, branch_name: String) -> ApiResponse<String> {
+pub async fn push_remote(_window: Window, repo_path: String, remote_name: String, branch_name: String, auth_config: Option<AuthConfig>) -> ApiResponse<String> {
     eprintln!("🚀 push_remote called: repo={}, remote={}, branch={}", repo_path, remote_name, branch_name);
+    if let Some(ref auth) = auth_config {
+        eprintln!("   认证配置：类型={}, 有token={}", auth.auth_type, auth.token.is_some());
+    } else {
+        eprintln!("   未提供认证配置，将使用默认方式");
+    }
 
     // 添加 30 秒超时
     let timeout_duration = std::time::Duration::from_secs(30);
@@ -57,8 +62,8 @@ pub async fn push_remote(_window: Window, repo_path: String, remote_name: String
         match GitRepository::open(&repo_path) {
             Ok(repo) => {
                 eprintln!("✅ Repository opened, starting push (without progress)...");
-                // 使用不带进度的 push 方法
-                match repo.push(&remote_name, &branch_name) {
+                // 使用不带进度的 push 方法，传递认证配置
+                match repo.push(&remote_name, &branch_name, auth_config) {
                     Ok(_) => {
                         eprintln!("✅ Push completed successfully");
                         ApiResponse::success("Push completed".to_string())

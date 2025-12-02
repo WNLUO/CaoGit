@@ -405,7 +405,14 @@ async function handleCreateAndPublish() {
         return;
       }
 
-      const pushResponse = await GitApi.push(props.repoPath, 'origin', branchToPush);
+      // 准备认证配置（如果使用 HTTPS 且有 token）
+      const authConfig = !useSSH.value && token ? {
+        authType: 'token',
+        token: token,
+        username: selectedPlatform.value === 'gitlab' ? 'oauth2' : undefined
+      } : undefined;
+
+      const pushResponse = await GitApi.push(props.repoPath, 'origin', branchToPush, authConfig);
 
       if (pushResponse.success) {
         toastStore.success('仓库创建成功并已推送！');

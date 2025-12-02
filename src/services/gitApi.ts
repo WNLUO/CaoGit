@@ -38,6 +38,11 @@ export interface BranchInfo {
     last_commit?: string;
 }
 
+export interface SyncStatus {
+    ahead: number;
+    behind: number;
+}
+
 export class GitApi {
     static async openRepository(path: string): Promise<ApiResponse<string>> {
         return await safeInvoke('open_repository', { path });
@@ -87,13 +92,21 @@ export class GitApi {
         return await safeInvoke('get_current_branch', { repoPath });
     }
 
+    static async getSyncStatus(repoPath: string, branchName: string): Promise<ApiResponse<SyncStatus>> {
+        return await safeInvoke('get_sync_status', { repoPath, branchName });
+    }
+
     // Remote operations
-    static async fetch(repoPath: string, remoteName: string = 'origin'): Promise<ApiResponse<string>> {
+    static async fetch(repoPath: string, remoteName: string = 'origin', authConfig?: any): Promise<ApiResponse<string>> {
         const startTime = performance.now();
         const startMs = Date.now();
 
         try {
-            const result = await safeInvoke<ApiResponse<string>>('fetch_remote', { repoPath, remoteName });
+            const result = await safeInvoke<ApiResponse<string>>('fetch_remote', {
+                repoPath,
+                remoteName,
+                authConfig: authConfig || null
+            });
 
             // 计算网络指标
             const endTime = performance.now();
@@ -114,12 +127,17 @@ export class GitApi {
         }
     }
 
-    static async pull(repoPath: string, remoteName: string = 'origin', branchName: string): Promise<ApiResponse<string>> {
+    static async pull(repoPath: string, remoteName: string = 'origin', branchName: string, authConfig?: any): Promise<ApiResponse<string>> {
         const startTime = performance.now();
         const startMs = Date.now();
 
         try {
-            const result = await safeInvoke<ApiResponse<string>>('pull_remote', { repoPath, remoteName, branchName });
+            const result = await safeInvoke<ApiResponse<string>>('pull_remote', {
+                repoPath,
+                remoteName,
+                branchName,
+                authConfig: authConfig || null
+            });
 
             // 计算网络指标
             const endTime = performance.now();
@@ -140,12 +158,17 @@ export class GitApi {
         }
     }
 
-    static async push(repoPath: string, remoteName: string = 'origin', branchName: string): Promise<ApiResponse<string>> {
+    static async push(repoPath: string, remoteName: string = 'origin', branchName: string, authConfig?: any): Promise<ApiResponse<string>> {
         const startTime = performance.now();
         const startMs = Date.now();
 
         try {
-            const result = await safeInvoke<ApiResponse<string>>('push_remote', { repoPath, remoteName, branchName });
+            const result = await safeInvoke<ApiResponse<string>>('push_remote', {
+                repoPath,
+                remoteName,
+                branchName,
+                authConfig: authConfig || null
+            });
 
             // 计算网络指标
             const endTime = performance.now();
