@@ -123,7 +123,7 @@ jobs:
         run: |
           echo "🔨 Building app bundle first..."
           npm run build
-          npm run tauri build --bundles app
+          npm run tauri -- build --bundles app
 
           echo "📦 Creating custom DMG with background..."
           cd src-tauri
