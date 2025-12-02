@@ -110,69 +110,9 @@ jobs:
           df -h
 
       - name: Build Tauri app
-        run: npm run tauri:build
-
-      - name: Create DMG with proper styling
         run: |
-          set -e
-          echo "🔨 创建美化的DMG..."
-
-          # 找到构建的App
-          APP_DIR="src-tauri/target/release/bundle/macos/CaoGit.app"
-          DMG_DIR="src-tauri/target/release/bundle/dmg"
-
-          if [ ! -d "$APP_DIR" ]; then
-            echo "❌ App directory not found"
-            exit 1
-          fi
-
-          # 删除Tauri创建的原始DMG
-          rm -f "$DMG_DIR"/*.dmg 2>/dev/null || true
-
-          # 找到bundle_dmg.sh脚本
-          BUNDLE_DMG_SCRIPT="$DMG_DIR/bundle_dmg.sh"
-          if [ ! -f "$BUNDLE_DMG_SCRIPT" ]; then
-            echo "❌ bundle_dmg.sh not found"
-            exit 1
-          fi
-
-          # 创建临时目录只包含App
-          TEMP_APP_DIR=$(mktemp -d)
-          cp -r "$APP_DIR" "$TEMP_APP_DIR/"
-
-          # 确定DMG文件名
-          VERSION=$(jq -r '.version' src-tauri/tauri.conf.json)
-          ARCH=$(uname -m)
-          DMG_FILE="$DMG_DIR/CaoGit_${VERSION}_${ARCH}.dmg"
-
-          echo "📦 使用bundle_dmg.sh创建DMG..."
-          echo "   App: $APP_DIR"
-          echo "   DMG: $DMG_FILE"
-
-          chmod +x "$BUNDLE_DMG_SCRIPT"
-
-          # 使用bundle_dmg.sh创建DMG，带上所有美化参数
-          "$BUNDLE_DMG_SCRIPT" \
-            --volname "CaoGit" \
-            --background "src-tauri/assets/dmg-background.jpg" \
-            --window-pos 100 100 \
-            --window-size 1025 678 \
-            --icon-size 128 \
-            --icon "CaoGit.app" 240 300 \
-            --app-drop-link 790 300 \
-            "$DMG_FILE" \
-            "$TEMP_APP_DIR"
-
-          # 清理临时文件
-          rm -rf "$TEMP_APP_DIR"
-
-          if [ -f "$DMG_FILE" ]; then
-            echo "✅ DMG创建成功！"
-            ls -lh "$DMG_FILE"
-          else
-            echo "❌ DMG创建失败"
-            exit 1
-          fi
+          npm run build
+          npm run tauri build --bundles dmg
 
       - name: Notarize DMG
         if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
