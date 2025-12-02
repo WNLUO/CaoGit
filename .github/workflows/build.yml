@@ -118,12 +118,14 @@ jobs:
               -k "$KEYCHAIN_PATH" \
               -P "$MACOS_CERTIFICATE_PWD" \
               -T /usr/bin/codesign \
-              -T /usr/bin/productsign
+              -T /usr/bin/productsign \
+              -A
 
-            # 设置 keychain 搜索列表
-            security list-keychain -d user -s "$KEYCHAIN_PATH" login.keychain
+            # 设置 keychain 搜索列表 (将临时 keychain 设为默认)
+            security list-keychain -d user -s "$KEYCHAIN_PATH"
+            security default-keychain -s "$KEYCHAIN_PATH"
 
-            # 允许 codesign 访问证书
+            # 允许 codesign 访问证书（无需密码）
             security set-key-partition-list \
               -S apple-tool:,apple:,codesign: \
               -s \
@@ -135,6 +137,8 @@ jobs:
 
             echo "✅ 证书导入成功！"
             security find-identity -v -p codesigning
+            echo "默认 keychain:"
+            security default-keychain
           else
             echo "⚠️  未配置签名证书，将使用 ad-hoc 签名"
           fi
