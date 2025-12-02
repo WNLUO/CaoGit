@@ -25,6 +25,10 @@ function saveRepositories(repositories: Repository[]) {
     }
 }
 
+// Auto-sync timer
+let syncTimer: number | null = null;
+const SYNC_INTERVAL = 10000; // 10 seconds
+
 export const repoStore = reactive({
     repositories: loadRepositories(),
 
@@ -39,6 +43,7 @@ export const repoStore = reactive({
     hasConflicts: false,
     conflicts: [] as any[],
     syncStatus: null as SyncStatus | null,
+    autoSyncEnabled: true, // 是否启用自动同步
 
     async loadRepoData(repo: Repository) {
         this.activeRepo = repo;
@@ -79,6 +84,9 @@ export const repoStore = reactive({
                     throw error;
                 }
             }
+
+            // Start auto-sync timer after loading repo
+            this.startAutoSync();
         } catch (error: any) {
             this.error = error.message || 'Failed to load repository data';
             console.error('Error loading repo data:', error);
@@ -334,5 +342,63 @@ export const repoStore = reactive({
             return this.fileChanges[currentIndex - 1];
         }
         return null;
+    },
+
+    // Start auto-sync timer
+    startAutoSync() {
+        if (!this.autoSyncEnabled) return;
+
+        // Clear existing timer
+        this.stopAutoSync();
+
+        // Set up new timer
+        syncTimer = window.setInterval(async () => {
+            if (this.activeRepo && this.autoSyncEnabled) {
+                try {
+                    await Promise.all([
+                        this.refreshStatus(),
+                        this.refreshSyncStatus(),
+                        this.refreshBranches()
+                    ]);
+                } catch (error) {
+                    // Silently fail - don't interrupt user workflow
+                    console.debug('Auto-sync failed:', error);
+                }
+            }
+        }, SYNC_INTERVAL);
+    },
+
+    // Stop auto-sync timer
+    stopAutoSync() {
+        if (syncTimer !== null) {
+            window.clearInterval(syncTimer);
+            syncTimer = null;
+        }
+    },
+
+    // Toggle auto-sync
+    toggleAutoSync() {
+        this.autoSyncEnabled = !this.autoSyncEnabled;
+        if (this.autoSyncEnabled) {
+            this.startAutoSync();
+        } else {
+            this.stopAutoSync();
+        }
+    },
+
+    // Refresh all repository data (for window focus)
+    async refreshAllData() {
+        if (!this.activeRepo) return;
+
+        try {
+            await Promise.all([
+                this.refreshStatus(),
+                this.refreshBranches(),
+                this.refreshSyncStatus(),
+                this.refreshCommits()
+            ]);
+        } catch (error: any) {
+            console.error('Failed to refresh all data:', error);
+        }
     }
 });

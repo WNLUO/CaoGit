@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, onUnmounted } from 'vue';
 
 import Sidebar from "./components/layout/Sidebar.vue";
 import TopBar from "./components/layout/TopBar.vue";
@@ -12,6 +12,7 @@ import Resizer from "./components/layout/Resizer.vue";
 import Toast from "./components/common/Toast.vue";
 import { settingsStore } from "./stores/settingsStore";
 import { toastStore } from "./stores/toastStore";
+import { repoStore } from "./stores/repoStore";
 import type { Repository } from "./types";
 
 const isSettingsOpen = ref(false);
@@ -48,9 +49,26 @@ function handleRepoAdded(_path: string) {
   // TODO: Refresh repo list or select the new repo
 }
 
+// Handle window focus event
+function handleWindowFocus() {
+  // Refresh all repository data when window gains focus
+  repoStore.refreshAllData();
+}
+
 onMounted(() => {
   // 从设置中恢复 Sidebar 宽度
   sidebarWidth.value = settingsStore.settings.layout.sidebarWidth ?? 240;
+
+  // Add window focus event listener
+  window.addEventListener('focus', handleWindowFocus);
+});
+
+onUnmounted(() => {
+  // Clean up event listener
+  window.removeEventListener('focus', handleWindowFocus);
+
+  // Stop auto-sync timer
+  repoStore.stopAutoSync();
 });
 
 function handleSidebarResize(delta: number) {
