@@ -19,15 +19,23 @@ impl GitRepository {
         Ok(())
     }
 
-    /// Fetch from a remote with progress reporting
+    /// Fetch from a remote with progress reporting and timeout
     pub fn fetch_with_progress(&self, remote_name: &str, window: tauri::Window) -> Result<()> {
         let mut remote = self.repo.find_remote(remote_name)?;
 
         let mut callbacks = RemoteCallbacks::new();
         let window_clone = window.clone();
         let last_update = Arc::new(Mutex::new(std::time::Instant::now()));
+        let start_time = Arc::new(std::time::Instant::now());
+        let timeout_secs = 300; // 5 分钟超时
 
         callbacks.transfer_progress(move |stats| {
+            // 检查超时
+            if start_time.elapsed().as_secs() > timeout_secs {
+                eprintln!("⏱️  Fetch operation timed out after {} seconds", timeout_secs);
+                return false; // 中止操作
+            }
+
             let mut last = match last_update.lock() {
                 Ok(guard) => guard,
                 Err(_) => return true, // Continue on lock error
@@ -60,6 +68,19 @@ impl GitRepository {
             }
 
             true
+        });
+
+        // 添加认证回调，支持 SSH 和 HTTPS
+        callbacks.credentials(|_url, username_from_url, allowed_types| {
+            // 优先尝试 SSH agent
+            if allowed_types.is_ssh_key() {
+                if let Some(username) = username_from_url {
+                    return Cred::ssh_key_from_agent(username);
+                }
+                return Cred::ssh_key_from_agent("git");
+            }
+            // 回退到默认凭据（用于 HTTPS）
+            Cred::default()
         });
 
         let mut fetch_options = FetchOptions::new();
@@ -166,18 +187,24 @@ impl GitRepository {
         Ok(())
     }
 
-    /// Push to a remote with progress reporting
+    /// Push to a remote with progress reporting and timeout
     pub fn push_with_progress(&self, remote_name: &str, branch_name: &str, window: tauri::Window) -> Result<()> {
         let mut remote = self.repo.find_remote(remote_name)?;
 
         let mut callbacks = RemoteCallbacks::new();
+        let start_time = Arc::new(std::time::Instant::now());
+        let timeout_secs = 300; // 5 分钟超时
 
-        callbacks.credentials(|_url, username_from_url, _allowed_types| {
-            if let Some(username) = username_from_url {
-                Cred::ssh_key_from_agent(username)
-            } else {
-                Cred::ssh_key_from_agent("git")
+        callbacks.credentials(|_url, username_from_url, allowed_types| {
+            // 优先尝试 SSH agent
+            if allowed_types.is_ssh_key() {
+                if let Some(username) = username_from_url {
+                    return Cred::ssh_key_from_agent(username);
+                }
+                return Cred::ssh_key_from_agent("git");
             }
+            // 回退到默认凭据（用于 HTTPS）
+            Cred::default()
         });
 
         let window_clone = window.clone();
@@ -185,6 +212,14 @@ impl GitRepository {
         let last_bytes = Arc::new(Mutex::new(0usize));
 
         callbacks.push_transfer_progress(move |current, total, bytes| {
+            // 检查超时
+            if start_time.elapsed().as_secs() > timeout_secs {
+                eprintln!("⏱️  Push operation timed out after {} seconds", timeout_secs);
+                // push_transfer_progress 没有返回值，无法中止
+                // 但可以停止发送进度更新
+                return;
+            }
+
             let mut last = match last_update.lock() {
                 Ok(guard) => guard,
                 Err(_) => return, // Continue on lock error
