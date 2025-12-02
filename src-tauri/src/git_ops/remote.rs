@@ -143,21 +143,83 @@ impl GitRepository {
     #[allow(dead_code)]
     pub fn push(&self, remote_name: &str, branch_name: &str) -> Result<()> {
         let mut remote = self.repo.find_remote(remote_name)?;
+        let remote_url = remote.url().unwrap_or("unknown");
+        eprintln!("📡 Push to remote: {} ({})", remote_name, remote_url);
+
         let refspec = format!("refs/heads/{}:refs/heads/{}", branch_name, branch_name);
 
         let mut callbacks = RemoteCallbacks::new();
-        callbacks.credentials(|_url, username_from_url, _allowed_types| {
-            if let Some(username) = username_from_url {
-                Cred::ssh_key_from_agent(username)
-            } else {
-                Cred::ssh_key_from_agent("git")
+
+        // 添加详细的认证日志和多重回退机制
+        callbacks.credentials(move |url, username_from_url, allowed_types| {
+            eprintln!("🔐 Credentials requested:");
+            eprintln!("   URL: {}", url);
+            eprintln!("   Username from URL: {:?}", username_from_url);
+            eprintln!("   Allowed types: {:?}", allowed_types);
+
+            // 1. 尝试 SSH key from agent（最常用）
+            if allowed_types.is_ssh_key() {
+                eprintln!("   Trying SSH key from agent...");
+                let username = username_from_url.unwrap_or("git");
+                match Cred::ssh_key_from_agent(username) {
+                    Ok(cred) => {
+                        eprintln!("   ✅ SSH agent credential obtained");
+                        return Ok(cred);
+                    }
+                    Err(e) => {
+                        eprintln!("   ❌ SSH agent failed: {}", e);
+                    }
+                }
             }
+
+            // 2. 尝试从默认位置读取 SSH 密钥
+            if allowed_types.is_ssh_key() {
+                eprintln!("   Trying SSH key from ~/.ssh/id_rsa...");
+                let username = username_from_url.unwrap_or("git");
+                match std::env::var("HOME") {
+                    Ok(home) => {
+                        let private_key = format!("{}/.ssh/id_rsa", home);
+                        let public_key = format!("{}/.ssh/id_rsa.pub", home);
+                        match Cred::ssh_key(username, Some(std::path::Path::new(&public_key)), std::path::Path::new(&private_key), None) {
+                            Ok(cred) => {
+                                eprintln!("   ✅ SSH key from ~/.ssh obtained");
+                                return Ok(cred);
+                            }
+                            Err(e) => {
+                                eprintln!("   ❌ SSH key from file failed: {}", e);
+                            }
+                        }
+                    }
+                    Err(_) => {
+                        eprintln!("   ❌ HOME environment variable not set");
+                    }
+                }
+            }
+
+            // 3. 尝试默认凭据（用于 HTTPS）
+            if allowed_types.is_user_pass_plaintext() {
+                eprintln!("   Trying default credentials (HTTPS)...");
+                match Cred::default() {
+                    Ok(cred) => {
+                        eprintln!("   ✅ Default credential obtained");
+                        return Ok(cred);
+                    }
+                    Err(e) => {
+                        eprintln!("   ❌ Default credential failed: {}", e);
+                    }
+                }
+            }
+
+            eprintln!("   ❌ All authentication methods failed");
+            Err(git2::Error::from_str("No valid authentication method available"))
         });
 
         let mut push_options = PushOptions::new();
         push_options.remote_callbacks(callbacks);
 
+        eprintln!("🚀 Starting push operation...");
         remote.push(&[&refspec], Some(&mut push_options))?;
+        eprintln!("✅ Push completed successfully");
 
         // Set upstream tracking after successful push
         let mut branch = self.repo.find_branch(branch_name, git2::BranchType::Local)?;
