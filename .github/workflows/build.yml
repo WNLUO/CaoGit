@@ -287,7 +287,9 @@ jobs:
         run: npm ci
 
       - name: Build Tauri app
-        run: npm run tauri:build
+        run: |
+          npm run build
+          npm run tauri build
 
       - name: List build output
         shell: bash
@@ -381,7 +383,9 @@ jobs:
         run: npm ci
 
       - name: Build Tauri app
-        run: npm run tauri:build
+        run: |
+          npm run build
+          npm run tauri build
 
       - name: Find and upload AppImage
         shell: bash
