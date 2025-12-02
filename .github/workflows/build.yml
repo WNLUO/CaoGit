@@ -96,52 +96,12 @@ jobs:
 
       - name: Import Developer ID certificate
         if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
-        env:
-          MACOS_CERTIFICATE: ${{ secrets.MACOS_CERTIFICATE }}
-          MACOS_CERTIFICATE_PWD: ${{ secrets.MACOS_CERTIFICATE_PWD }}
-        run: |
-          if [ -n "$MACOS_CERTIFICATE" ]; then
-            echo "🔐 导入开发者签名证书..."
-
-            # 创建临时 keychain
-            KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
-            KEYCHAIN_PASSWORD=$(openssl rand -base64 32)
-
-            # 创建并解锁 keychain
-            security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
-            security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
-            security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
-
-            # 导入证书
-            echo "$MACOS_CERTIFICATE" | base64 --decode > certificate.p12
-            security import certificate.p12 \
-              -k "$KEYCHAIN_PATH" \
-              -P "$MACOS_CERTIFICATE_PWD" \
-              -T /usr/bin/codesign \
-              -T /usr/bin/productsign \
-              -A
-
-            # 设置 keychain 搜索列表 (将临时 keychain 设为默认)
-            security list-keychain -d user -s "$KEYCHAIN_PATH"
-            security default-keychain -s "$KEYCHAIN_PATH"
-
-            # 允许 codesign 访问证书（无需密码）
-            security set-key-partition-list \
-              -S apple-tool:,apple:,codesign: \
-              -s \
-              -k "$KEYCHAIN_PASSWORD" \
-              "$KEYCHAIN_PATH"
-
-            # 清理临时文件
-            rm -f certificate.p12
-
-            echo "✅ 证书导入成功！"
-            security find-identity -v -p codesigning
-            echo "默认 keychain:"
-            security default-keychain
-          else
-            echo "⚠️  未配置签名证书，将使用 ad-hoc 签名"
-          fi
+        uses: apple-actions/import-codesign-certs@v2
+        with:
+          p12-file-base64: ${{ secrets.MACOS_CERTIFICATE }}
+          p12-password: ${{ secrets.MACOS_CERTIFICATE_PWD }}
+          create-keychain: true
+          keychain-password: ${{ secrets.MACOS_CERTIFICATE_PWD }}
 
       - name: Clean up old builds to save space
         run: |
