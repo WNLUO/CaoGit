@@ -19,24 +19,39 @@ async function loadVersion() {
   }
 }
 
+// 触发更新检查的自定义事件
+const emit = defineEmits<{
+  checkUpdate: []
+}>();
+
 async function checkForUpdates() {
   isChecking.value = true;
+  showMenu.value = false;
+
   try {
     const response = await invoke<any>('check_for_updates');
     if (response.success) {
       if (response.has_update) {
+        // 有更新，触发事件让 UpdateDialog 组件显示更新弹窗
+        emit('checkUpdate');
         toastStore.success(`发现新版本: v${response.latest_version}`);
       } else {
-        toastStore.success('已是最新版本');
+        // 没有更新
+        if (response.error) {
+          // 有错误信息（例如：有新版本但没有当前平台的资源）
+          toastStore.info('当前已是最新版本');
+          console.warn('Update check warning:', response.error);
+        } else {
+          toastStore.success('已是最新版本');
+        }
       }
     } else {
-      toastStore.error(`检查更新失败: ${response.error}`);
+      toastStore.error(`检查更新失败: ${response.error || '未知错误'}`);
     }
   } catch (error) {
     toastStore.error(`检查更新错误: ${error}`);
   } finally {
     isChecking.value = false;
-    showMenu.value = false;
   }
 }
 

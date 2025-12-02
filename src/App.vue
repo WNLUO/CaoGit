@@ -20,6 +20,7 @@ const selectedRepo = ref<Repository | undefined>(undefined);
 const activeRepo = ref<Repository | undefined>(undefined);
 const isAddRepoOpen = ref(false);
 const sidebarWidth = ref(240);
+const updateDialogRef = ref<InstanceType<typeof UpdateDialog> | null>(null);
 
 function openGlobalSettings() {
   settingsMode.value = 'global';
@@ -58,6 +59,13 @@ function handleSidebarResize(delta: number) {
   sidebarWidth.value = newWidth;
   settingsStore.updateLayoutSettings({ sidebarWidth: newWidth });
 }
+
+function handleCheckUpdate() {
+  // 手动检查更新时，触发 UpdateDialog 显示
+  if (updateDialogRef.value) {
+    updateDialogRef.value.checkForUpdates();
+  }
+}
 </script>
 
 <template>
@@ -70,7 +78,7 @@ function handleSidebarResize(delta: number) {
     />
     <Resizer direction="horizontal" @resize="handleSidebarResize" />
     <main class="main-content">
-      <TopBar @open-global-settings="openGlobalSettings" />
+      <TopBar @open-global-settings="openGlobalSettings" @check-update="handleCheckUpdate" />
       <div class="content-area">
         <RepoMain v-if="activeRepo" :repo="activeRepo" />
         <div v-else class="welcome-container">
@@ -120,7 +128,7 @@ function handleSidebarResize(delta: number) {
 
     <DebugErrorDialog />
 
-    <UpdateDialog />
+    <UpdateDialog ref="updateDialogRef" />
 
     <!-- Toast Notifications -->
     <Toast

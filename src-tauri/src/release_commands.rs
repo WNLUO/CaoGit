@@ -544,16 +544,64 @@ async fn check_updates_channel1(
 
                 let has_update = compare_versions(latest_version, current_version);
 
-                Ok(UpdateCheckResult {
-                    success: true,
-                    has_update,
-                    current_version: current_version.to_string(),
-                    latest_version: latest_version.to_string(),
-                    download_url: latest.html_url.clone(),
-                    released_at: latest.published_at.clone().unwrap_or_else(|| "unknown".to_string()),
-                    channel: "built-in-proxy".to_string(),
-                    error: None,
-                })
+                // 如果有更新，验证当前平台是否有可用的下载资源
+                if has_update {
+                    let platform = detect_current_platform();
+                    // 检查是否存在可下载的资源
+                    match verify_platform_asset_exists(latest_version, &platform).await {
+                        Ok(true) => {
+                            // 资源存在，返回更新信息
+                            Ok(UpdateCheckResult {
+                                success: true,
+                                has_update: true,
+                                current_version: current_version.to_string(),
+                                latest_version: latest_version.to_string(),
+                                download_url: latest.html_url.clone(),
+                                released_at: latest.published_at.clone().unwrap_or_else(|| "unknown".to_string()),
+                                channel: "built-in-proxy".to_string(),
+                                error: None,
+                            })
+                        }
+                        Ok(false) => {
+                            // 有新版本但没有当前平台的资源，不提示更新
+                            Ok(UpdateCheckResult {
+                                success: true,
+                                has_update: false,
+                                current_version: current_version.to_string(),
+                                latest_version: current_version.to_string(),
+                                download_url: String::new(),
+                                released_at: String::new(),
+                                channel: "built-in-proxy".to_string(),
+                                error: Some(format!("Latest version {} found, but no asset available for platform: {}", latest_version, platform)),
+                            })
+                        }
+                        Err(e) => {
+                            // 验证失败，为了安全起见，不提示更新
+                            Ok(UpdateCheckResult {
+                                success: true,
+                                has_update: false,
+                                current_version: current_version.to_string(),
+                                latest_version: current_version.to_string(),
+                                download_url: String::new(),
+                                released_at: String::new(),
+                                channel: "built-in-proxy".to_string(),
+                                error: Some(format!("Failed to verify assets: {}", e)),
+                            })
+                        }
+                    }
+                } else {
+                    // 没有更新
+                    Ok(UpdateCheckResult {
+                        success: true,
+                        has_update: false,
+                        current_version: current_version.to_string(),
+                        latest_version: latest_version.to_string(),
+                        download_url: latest.html_url.clone(),
+                        released_at: latest.published_at.clone().unwrap_or_else(|| "unknown".to_string()),
+                        channel: "built-in-proxy".to_string(),
+                        error: None,
+                    })
+                }
             } else {
                 Err("No releases found".to_string())
             }
@@ -584,16 +632,64 @@ async fn check_updates_channel2(current_version: &str) -> Result<UpdateCheckResu
                             let latest_version = tag.trim_start_matches('v');
                             let has_update = compare_versions(latest_version, current_version);
 
-                            Ok(UpdateCheckResult {
-                                success: true,
-                                has_update,
-                                current_version: current_version.to_string(),
-                                latest_version: latest_version.to_string(),
-                                download_url: html_url.to_string(),
-                                released_at: published_at.to_string(),
-                                channel: "direct-network".to_string(),
-                                error: None,
-                            })
+                            // 如果有更新，验证当前平台是否有可用的下载资源
+                            if has_update {
+                                let platform = detect_current_platform();
+                                // 检查是否存在可下载的资源
+                                match verify_platform_asset_exists(latest_version, &platform).await {
+                                    Ok(true) => {
+                                        // 资源存在，返回更新信息
+                                        Ok(UpdateCheckResult {
+                                            success: true,
+                                            has_update: true,
+                                            current_version: current_version.to_string(),
+                                            latest_version: latest_version.to_string(),
+                                            download_url: html_url.to_string(),
+                                            released_at: published_at.to_string(),
+                                            channel: "direct-network".to_string(),
+                                            error: None,
+                                        })
+                                    }
+                                    Ok(false) => {
+                                        // 有新版本但没有当前平台的资源，不提示更新
+                                        Ok(UpdateCheckResult {
+                                            success: true,
+                                            has_update: false,
+                                            current_version: current_version.to_string(),
+                                            latest_version: current_version.to_string(),
+                                            download_url: String::new(),
+                                            released_at: String::new(),
+                                            channel: "direct-network".to_string(),
+                                            error: Some(format!("Latest version {} found, but no asset available for platform: {}", latest_version, platform)),
+                                        })
+                                    }
+                                    Err(e) => {
+                                        // 验证失败，为了安全起见，不提示更新
+                                        Ok(UpdateCheckResult {
+                                            success: true,
+                                            has_update: false,
+                                            current_version: current_version.to_string(),
+                                            latest_version: current_version.to_string(),
+                                            download_url: String::new(),
+                                            released_at: String::new(),
+                                            channel: "direct-network".to_string(),
+                                            error: Some(format!("Failed to verify assets: {}", e)),
+                                        })
+                                    }
+                                }
+                            } else {
+                                // 没有更新
+                                Ok(UpdateCheckResult {
+                                    success: true,
+                                    has_update: false,
+                                    current_version: current_version.to_string(),
+                                    latest_version: latest_version.to_string(),
+                                    download_url: html_url.to_string(),
+                                    released_at: published_at.to_string(),
+                                    channel: "direct-network".to_string(),
+                                    error: None,
+                                })
+                            }
                         } else {
                             Err("Missing required fields in response".to_string())
                         }
@@ -635,6 +731,69 @@ pub struct UpdateCheckResult {
     pub released_at: String,
     pub channel: String,
     pub error: Option<String>,
+}
+
+/// 检测当前运行的平台
+fn detect_current_platform() -> String {
+    #[cfg(target_os = "windows")]
+    return "windows".to_string();
+
+    #[cfg(target_os = "macos")]
+    return "macos".to_string();
+
+    #[cfg(target_os = "linux")]
+    return "linux".to_string();
+
+    #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
+    return "unknown".to_string();
+}
+
+/// 验证指定版本的 Release 是否有当前平台的可下载资源
+async fn verify_platform_asset_exists(version: &str, platform: &str) -> Result<bool, String> {
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(10))
+        .build()
+        .map_err(|e| format!("Failed to create HTTP client: {}", e))?;
+
+    let url = format!("https://api.github.com/repos/wnluo/caogit/releases/tags/v{}", version.trim_start_matches('v'));
+
+    let response = client
+        .get(&url)
+        .header("User-Agent", "CaoGit")
+        .send()
+        .await
+        .map_err(|e| format!("Failed to fetch release info: {}", e))?;
+
+    if !response.status().is_success() {
+        return Err(format!("Release not found: HTTP {}", response.status()));
+    }
+
+    let data: serde_json::Value = response.json().await
+        .map_err(|e| format!("Failed to parse release data: {}", e))?;
+
+    let assets = data["assets"].as_array()
+        .ok_or_else(|| "No assets found in release".to_string())?;
+
+    // 根据平台匹配文件后缀
+    let patterns = match platform {
+        "windows" => vec![".msi", ".exe"],
+        "macos" => vec![".dmg"],
+        "linux" => vec![".AppImage", ".deb"],
+        _ => return Ok(false), // 未知平台
+    };
+
+    // 检查是否存在匹配的资源
+    for pattern in patterns {
+        for asset in assets {
+            if let Some(name) = asset["name"].as_str() {
+                if name.ends_with(pattern) && !name.contains("blockmap") {
+                    return Ok(true); // 找到匹配的资源
+                }
+            }
+        }
+    }
+
+    Ok(false) // 没有找到匹配的资源
 }
 
 /// 从 Release 获取实际的下载文件

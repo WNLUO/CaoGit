@@ -12,6 +12,7 @@ import { settingsStore } from '../../stores/settingsStore';
 
 const emit = defineEmits<{
   (e: 'open-global-settings'): void;
+  (e: 'check-update'): void;
 }>();
 
 const currentBranch = computed(() => repoStore.currentBranch);
@@ -292,7 +293,7 @@ async function createNewBranch() {
       <ThemeToggle />
 
       <!-- Version Display -->
-      <VersionDisplay />
+      <VersionDisplay @check-update="emit('check-update')" />
 
       <!-- Git操作按钮 - 只在有仓库时显示 -->
       <template v-if="repoStore.activeRepo">
