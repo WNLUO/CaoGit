@@ -17,15 +17,14 @@ pub fn open_repository(path: String) -> ApiResponse<String> {
 /// Clone a repository from URL (异步执行，不阻塞主线程)
 #[tauri::command]
 pub async fn clone_repository(url: String, path: String) -> ApiResponse<String> {
-    // 在独立线程中执行，避免阻塞主线程
-    let result = tokio::task::spawn_blocking(move || {
+    let handle = tokio::task::spawn(async move {
         match GitRepository::clone(&url, &path) {
             Ok(_) => ApiResponse::success("Repository cloned successfully".to_string()),
             Err(e) => ApiResponse::error(e.to_string()),
         }
-    }).await;
+    });
 
-    match result {
+    match handle.await {
         Ok(response) => response,
         Err(e) => ApiResponse::error(format!("Task execution failed: {}", e)),
     }
