@@ -94,6 +94,51 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Import Developer ID certificate
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+        env:
+          MACOS_CERTIFICATE: ${{ secrets.MACOS_CERTIFICATE }}
+          MACOS_CERTIFICATE_PWD: ${{ secrets.MACOS_CERTIFICATE_PWD }}
+        run: |
+          if [ -n "$MACOS_CERTIFICATE" ]; then
+            echo "🔐 导入开发者签名证书..."
+
+            # 创建临时 keychain
+            KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
+            KEYCHAIN_PASSWORD=$(openssl rand -base64 32)
+
+            # 创建并解锁 keychain
+            security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+            security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+            security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+
+            # 导入证书
+            echo "$MACOS_CERTIFICATE" | base64 --decode > certificate.p12
+            security import certificate.p12 \
+              -k "$KEYCHAIN_PATH" \
+              -P "$MACOS_CERTIFICATE_PWD" \
+              -T /usr/bin/codesign \
+              -T /usr/bin/productsign
+
+            # 设置 keychain 搜索列表
+            security list-keychain -d user -s "$KEYCHAIN_PATH" login.keychain
+
+            # 允许 codesign 访问证书
+            security set-key-partition-list \
+              -S apple-tool:,apple:,codesign: \
+              -s \
+              -k "$KEYCHAIN_PASSWORD" \
+              "$KEYCHAIN_PATH"
+
+            # 清理临时文件
+            rm -f certificate.p12
+
+            echo "✅ 证书导入成功！"
+            security find-identity -v -p codesigning
+          else
+            echo "⚠️  未配置签名证书，将使用 ad-hoc 签名"
+          fi
+
       - name: Clean up old builds to save space
         run: |
           echo "🧹 清理之前的构建文件..."
@@ -164,6 +209,40 @@ jobs:
           else
             echo "❌ DMG创建失败"
             exit 1
+          fi
+
+      - name: Notarize DMG
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+        run: |
+          DMG_FILE=$(find src-tauri/target/release/bundle/dmg -name "*.dmg" -type f | head -n 1)
+
+          if [ -z "$APPLE_ID" ] || [ -z "$APPLE_APP_PASSWORD" ]; then
+            echo "⚠️  未配置公证信息 (APPLE_ID/APPLE_APP_PASSWORD)，跳过公证步骤"
+            echo "   用户下载后需要手动允许打开应用"
+            exit 0
+          fi
+
+          if [ -f "$DMG_FILE" ]; then
+            echo "📝 开始公证 DMG: $DMG_FILE"
+
+            # 上传到 Apple 进行公证
+            xcrun notarytool submit "$DMG_FILE" \
+              --apple-id "$APPLE_ID" \
+              --team-id "$APPLE_TEAM_ID" \
+              --password "$APPLE_APP_PASSWORD" \
+              --wait
+
+            # 附加公证票据到 DMG
+            echo "📎 附加公证票据..."
+            xcrun stapler staple "$DMG_FILE"
+
+            echo "✅ DMG 公证完成！用户可以直接打开，无需额外操作"
+          else
+            echo "❌ DMG 文件不存在，跳过公证"
           fi
 
       - name: Find and upload DMG

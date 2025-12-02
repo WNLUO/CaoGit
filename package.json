@@ -27,7 +27,7 @@
     "preview": "vite preview",
     "tauri": "tauri",
     "tauri:build": "tauri build --bundles app && cd src-tauri && bash scripts/create-localized-dmg.sh",
-    "tauri:build:appstore": "npm run build:appstore && npm run post-build:localize-prebundle && cd src-tauri && cargo build --release --features appstore --no-default-features && cd .. && tauri build && npm run post-build:localize-pkg",
+    "tauri:build:appstore": "npm run build:appstore && npm run post-build:localize-prebundle && cd src-tauri && cargo build --release --features appstore --no-default-features && cd .. && tauri build --config src-tauri/tauri.conf.appstore.json && npm run post-build:localize-pkg",
     "tauri:dev": "tauri dev",
     "post-build:localize-prebundle": "cd src-tauri && bash scripts/add-localization.sh target/release/bundle/macos/CaoGit.app 2>/dev/null || echo 'App not built yet, will localize after build'",
     "post-build:localize-dmg": "cd src-tauri && bash scripts/fix-dmg-localization.sh",
