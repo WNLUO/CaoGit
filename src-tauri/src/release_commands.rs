@@ -84,13 +84,16 @@ pub async fn publish_new_release(
 ) -> Result<String, String> {
     let repo = GitRepository::open(&repo_path).map_err(|e| e.to_string())?;
 
-    // 第一步：更新 tauri.conf.json 和 package.json 中的版本号
+    // 第一步：更新所有版本文件
     // 注意：这会修改文件，所以状态检查必须在更新之前完成（但我们允许自动生成的改动）
     update_tauri_config_version(&repo_path, &config.version)
         .map_err(|e| format!("更新 tauri.conf.json 版本号失败: {}", e))?;
 
     update_package_json_version(&repo_path, &config.version)
         .map_err(|e| format!("更新 package.json 版本号失败: {}", e))?;
+
+    update_cargo_toml_version(&repo_path, &config.version)
+        .map_err(|e| format!("更新 Cargo.toml 版本号失败: {}", e))?;
 
     // 第二步：提交版本号更改
     repo.stage_file("src-tauri/tauri.conf.json")
@@ -99,17 +102,23 @@ pub async fn publish_new_release(
     repo.stage_file("package.json")
         .map_err(|e| format!("暂存 package.json 失败: {}", e))?;
 
+    repo.stage_file("src-tauri/Cargo.toml")
+        .map_err(|e| format!("暂存 Cargo.toml 失败: {}", e))?;
+
     // 检查是否还有其他未暂存的改动（除了我们刚刚修改的配置文件）
     let status_after_stage = repo.get_status().map_err(|e| e.to_string())?;
     let has_other_changes = status_after_stage.iter().any(|item| {
-        // 如果有除了已暂存的 tauri.conf.json 和 package.json 之外的其他改动
-        !item.path.ends_with("tauri.conf.json") && !item.path.ends_with("package.json")
+        // 如果有除了已暂存的 tauri.conf.json、package.json 和 Cargo.toml 之外的其他改动
+        !item.path.ends_with("tauri.conf.json")
+            && !item.path.ends_with("package.json")
+            && !item.path.ends_with("Cargo.toml")
     });
 
     if has_other_changes {
         // 回滚暂存的文件
         let _ = repo.unstage_file("src-tauri/tauri.conf.json");
         let _ = repo.unstage_file("package.json");
+        let _ = repo.unstage_file("src-tauri/Cargo.toml");
         return Err("仓库有其他未提交的更改，请先提交或暂存这些更改后再发布。".to_string());
     }
 
@@ -239,6 +248,40 @@ fn update_package_json_version(repo_path: &str, version: &str) -> Result<(), Str
 
     fs::write(&package_path, updated_content)
         .map_err(|e| format!("写入 package.json 失败: {}", e))?;
+
+    Ok(())
+}
+
+/// 更新 Cargo.toml 中的版本号
+fn update_cargo_toml_version(repo_path: &str, version: &str) -> Result<(), String> {
+    use std::fs;
+    use std::path::Path;
+
+    // 移除版本号前缀 'v'（如果有）
+    let version_without_v = version.trim_start_matches('v');
+
+    // 构建 Cargo.toml 路径
+    let cargo_path = Path::new(repo_path)
+        .join("src-tauri")
+        .join("Cargo.toml");
+
+    // 读取文件内容
+    let content = fs::read_to_string(&cargo_path)
+        .map_err(|e| format!("读取 Cargo.toml 失败: {}", e))?;
+
+    // 使用正则表达式替换 [package] 块中的 version 字段
+    // 只替换第一次出现的 version = "..." (在 [package] 块中)
+    let version_regex = regex::Regex::new(r#"(?m)^version\s*=\s*"[^"]*""#)
+        .map_err(|e| format!("创建正则表达式失败: {}", e))?;
+
+    let updated_content = version_regex.replace(
+        &content,
+        format!(r#"version = "{}""#, version_without_v)
+    );
+
+    // 写回文件
+    fs::write(&cargo_path, updated_content.as_ref())
+        .map_err(|e| format!("写入 Cargo.toml 失败: {}", e))?;
 
     Ok(())
 }
