@@ -49,8 +49,10 @@ pub async fn pull_remote(window: Window, repo_path: String, remote_name: String,
 pub async fn push_remote(_window: Window, repo_path: String, remote_name: String, branch_name: String) -> ApiResponse<String> {
     eprintln!("🚀 push_remote called: repo={}, remote={}, branch={}", repo_path, remote_name, branch_name);
 
-    // 暂时不使用进度报告，先确保基本功能能工作
-    let result = tokio::task::spawn_blocking(move || {
+    // 添加 30 秒超时
+    let timeout_duration = std::time::Duration::from_secs(30);
+
+    let push_task = tokio::task::spawn_blocking(move || {
         eprintln!("📦 Opening repository in blocking thread: {}", repo_path);
         match GitRepository::open(&repo_path) {
             Ok(repo) => {
@@ -72,18 +74,23 @@ pub async fn push_remote(_window: Window, repo_path: String, remote_name: String
                 ApiResponse::error(e.to_string())
             },
         }
-    }).await;
+    });
 
-    eprintln!("⏳ Push task completed");
-    match result {
-        Ok(response) => {
+    // 使用 timeout 包装
+    eprintln!("⏳ Waiting for push task (timeout: 30s)...");
+    match tokio::time::timeout(timeout_duration, push_task).await {
+        Ok(Ok(response)) => {
             eprintln!("🎉 Push task finished: success={}", response.success);
             response
         },
-        Err(e) => {
+        Ok(Err(e)) => {
             eprintln!("💥 Task execution failed: {}", e);
             ApiResponse::error(format!("Task execution failed: {}", e))
         },
+        Err(_) => {
+            eprintln!("⏱️  Push operation timed out after 30 seconds");
+            ApiResponse::error("Push operation timed out after 30 seconds. Please check your SSH keys and network connection.".to_string())
+        }
     }
 }
 
