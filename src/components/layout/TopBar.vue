@@ -389,7 +389,7 @@ async function createNewBranch() {
   background-color: var(--bg-primary);
   border-bottom: 1px solid var(--border-color);
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-start;
   align-items: center;
   padding: 0 var(--spacing-lg);
   position: relative;
@@ -523,7 +523,7 @@ async function createNewBranch() {
   gap: var(--spacing-sm);
   align-items: center;
   flex-wrap: wrap;
-  justify-content: flex-end;
+  margin-left: auto;
 }
 
 .separator {
