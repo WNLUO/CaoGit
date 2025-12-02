@@ -495,16 +495,24 @@ function getDiffStatusColor(status?: FileChange['diffStatus']) {
       <div class="commit-section" :style="{ height: commitSectionHeight + 'px' }">
         <div class="section-header">
           <span>提交信息</span>
-          <div class="ai-actions">
+          <div class="ai-button-group">
             <button
-              class="ai-btn"
+              class="ai-generate-btn primary"
               :disabled="isGeneratingAI || repoStore.fileChanges.length === 0"
               @click="generateAICommitMessage"
+              title="AI生成提交信息"
             >
-              {{ isGeneratingAI ? '生成中...' : 'AI生成' }}
+              <svg class="ai-generate-icon" :class="{ generating: isGeneratingAI }" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="16" height="16" fill="none">
+                <path d="M512 348.416a742.4 742.4 0 0 1 265.386667 43.904C853.888 422.741333 896 465.237333 896 512s-42.112 89.258667-118.613333 119.68A742.4 742.4 0 0 1 512 675.584a742.4 742.4 0 0 1-265.386667-43.904C170.112 601.258667 128 558.762667 128 512s42.112-89.301333 118.613333-119.68A742.4 742.4 0 0 1 512 348.416z m0 290.816a705.322667 705.322667 0 0 0 251.733333-41.301333c60.757333-24.149333 95.616-55.466667 95.616-85.930667s-34.773333-61.781333-95.616-85.930667a705.322667 705.322667 0 0 0-251.733333-41.301333 705.322667 705.322667 0 0 0-251.733333 41.301333c-60.842667 24.149333-95.701333 55.466667-95.701334 85.930667s34.858667 61.781333 95.701334 85.930667a705.322667 705.322667 0 0 0 251.733333 41.301333z" fill="currentColor"/>
+                <path d="M362.453333 170.666667a238.933333 238.933333 0 0 1 145.92 73.898666 775.210667 775.210667 0 0 1 146.133334 185.642667 730.922667 730.922667 0 0 1 94.592 250.410667c11.733333 81.066667-4.266667 138.538667-44.970667 162.133333a84.096 84.096 0 0 1-42.666667 10.794667 238.677333 238.677333 0 0 1-145.92-73.898667 775.424 775.424 0 0 1-146.176-185.856 730.922667 730.922667 0 0 1-94.336-250.410667C263.253333 262.357333 279.253333 204.8 320 181.461333A84.138667 84.138667 0 0 1 362.453333 170.666667z m299.093334 646.314666a47.914667 47.914667 0 0 0 24.192-5.930666c26.538667-15.232 36.394667-60.885333 27.093333-125.269334a694.442667 694.442667 0 0 0-89.984-237.397333 749.312 749.312 0 0 0-139.008-176.853333 209.066667 209.066667 0 0 0-121.386667-64.512 47.914667 47.914667 0 0 0-24.149333 5.930666c-26.538667 15.189333-36.437333 60.885333-27.093333 125.269334a694.442667 694.442667 0 0 0 89.941333 237.397333 749.482667 749.482667 0 0 0 138.88 176.853333 209.066667 209.066667 0 0 0 121.514667 64.512z" fill="currentColor"/>
+                <path d="M362.453333 853.333333a84.138667 84.138667 0 0 1-42.453333-10.794666c-40.746667-23.381333-56.746667-81.066667-44.970667-162.133334a730.965333 730.965333 0 0 1 94.336-250.197333 775.381333 775.381333 0 0 1 146.218667-185.642667A238.677333 238.677333 0 0 1 661.546667 170.666667a84.096 84.096 0 0 1 42.666666 10.794666c40.746667 23.381333 56.704 81.066667 44.970667 162.133334a730.965333 730.965333 0 0 1-94.677333 250.197333 775.210667 775.210667 0 0 1-146.133334 185.642667A238.933333 238.933333 0 0 1 362.453333 853.333333z m299.093334-646.314666a209.066667 209.066667 0 0 0-121.514667 64.512 749.482667 749.482667 0 0 0-138.88 176.853333 694.442667 694.442667 0 0 0-89.941333 237.397333c-9.344 64.384 0.554667 110.037333 27.050666 125.269334a47.914667 47.914667 0 0 0 24.149334 5.930666 209.066667 209.066667 0 0 0 121.386666-64.512 749.269333 749.269333 0 0 0 139.050667-176.853333 694.442667 694.442667 0 0 0 89.941333-237.397333c9.344-64.384-0.554667-110.037333-27.093333-125.269334a47.914667 47.914667 0 0 0-24.149333-5.930666z" fill="currentColor"/>
+                <path d="M512 457.472A54.741333 54.741333 0 0 1 566.826667 512a54.869333 54.869333 0 0 1-109.696 0A54.741333 54.741333 0 0 1 512 457.472z m0 72.533333a18.176 18.176 0 1 0-18.304-18.005333 18.261333 18.261333 0 0 0 18.304 18.005333z" fill="currentColor"/>
+              </svg>
+              <span class="btn-text">生成</span>
             </button>
+            <div class="button-divider"></div>
             <button class="ai-settings-btn" @click="showAISettings = true" title="AI设置">
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51h.15a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51h.15a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
             </button>
           </div>
         </div>
@@ -777,42 +785,118 @@ function getDiffStatusColor(status?: FileChange['diffStatus']) {
   overflow: hidden;
 }
 
-.ai-actions {
+/* AI Button Group Container */
+.ai-button-group {
   display: flex;
-  gap: var(--spacing-xs);
   align-items: center;
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 }
 
-.ai-btn {
-  font-size: 0.75rem;
-  color: #8b5cf6;
-  background-color: #f3e8ff;
-  padding: 2px 8px;
-  border-radius: var(--radius-sm);
-  transition: all var(--transition-fast);
+/* Button Divider */
+.button-divider {
+  width: 1px;
+  height: 24px;
+  background: linear-gradient(
+    to bottom,
+    transparent,
+    var(--border-color) 20%,
+    var(--border-color) 80%,
+    transparent
+  );
 }
 
-.ai-btn:hover:not(:disabled) {
-  background-color: #e9d5ff;
-}
-
-.ai-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.ai-settings-btn {
-  padding: 4px;
-  color: var(--text-tertiary);
-  border-radius: var(--radius-sm);
+/* AI Generate Button - Primary Action */
+.ai-generate-btn {
   display: flex;
   align-items: center;
   justify-content: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%);
+  color: white;
+  border: none;
+  transition: all 0.2s ease;
+  font-size: 0.813rem;
+  font-weight: 500;
+  position: relative;
+  overflow: hidden;
+}
+
+.ai-generate-btn::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.ai-generate-btn:hover:not(:disabled)::before {
+  opacity: 1;
+}
+
+.ai-generate-btn:disabled {
+  background: var(--bg-tertiary);
+  color: var(--text-tertiary);
+  cursor: not-allowed;
+}
+
+.ai-generate-btn:disabled::before {
+  display: none;
+}
+
+.ai-generate-btn .ai-generate-icon,
+.ai-generate-btn .btn-text {
+  position: relative;
+  z-index: 1;
+}
+
+.btn-text {
+  line-height: 1;
+  user-select: none;
+}
+
+/* AI Settings Button - Secondary Action */
+.ai-settings-btn {
+  padding: 6px 10px;
+  color: var(--text-secondary);
+  background-color: transparent;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
 }
 
 .ai-settings-btn:hover {
   color: var(--text-primary);
   background-color: var(--bg-hover);
+}
+
+/* AI Generate Icon */
+.ai-generate-icon {
+  transition: all var(--transition-fast);
+  flex-shrink: 0;
+}
+
+.ai-generate-icon.generating {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .commit-input-wrapper {
