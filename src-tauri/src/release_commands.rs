@@ -930,20 +930,39 @@ pub async fn install_update(app: tauri::AppHandle, _download_url: String, platfo
             // 下载 DMG 文件
             download_update_file(&app, &actual_download_url, &file_path).await?;
 
-            // 生成修复脚本
-            let script_path = download_dir.join("安装CaoGit.command");
-            generate_macos_install_script(&script_path, &file_path)?;
+            // 自动挂载 DMG
+            let output = std::process::Command::new("hdiutil")
+                .args(&["attach", file_path.to_str().unwrap()])
+                .output()
+                .map_err(|e| format!("挂载 DMG 失败: {}", e))?;
 
-            // 打开下载目录
-            let _ = opener::open(&download_dir);
+            if !output.status.success() {
+                return Err("无法挂载 DMG 文件".to_string());
+            }
+
+            // 解析挂载点路径
+            let mount_output = String::from_utf8_lossy(&output.stdout);
+            let mount_point = mount_output
+                .lines()
+                .find(|line| line.contains("/Volumes"))
+                .and_then(|line| line.split_whitespace().last())
+                .unwrap_or("/Volumes/CaoGit");
+
+            // 自动打开 DMG 窗口（显示拖拽界面）
+            let _ = std::process::Command::new("open")
+                .arg(mount_point)
+                .spawn();
+
+            // 延迟 2 秒后自动退出当前应用
+            std::thread::spawn(|| {
+                std::thread::sleep(std::time::Duration::from_secs(2));
+                std::process::exit(0);
+            });
 
             Ok(UpdateInstallResult {
-                status: "downloaded".to_string(),
+                status: "ready_to_install".to_string(),
                 file_path: file_path.to_string_lossy().to_string(),
-                message: format!(
-                    "下载完成！请双击运行 \"安装CaoGit.command\" 脚本完成安装。\n\n文件位置: {}",
-                    download_dir.display()
-                ),
+                message: "DMG 已自动打开，请将 CaoGit 拖到 Applications 文件夹。\n\n应用将在 2 秒后关闭...".to_string(),
             })
         }
         "linux" => {

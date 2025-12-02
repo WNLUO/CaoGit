@@ -109,8 +109,25 @@ jobs:
           rm -rf src-tauri/target/debug 2>/dev/null || true
           df -h
 
-      - name: Build Tauri app
-        run: npm run tauri:build:dmg
+      - name: Verify DMG assets exist
+        run: |
+          echo "🔍 Checking DMG assets..."
+          ls -la src-tauri/assets/
+          if [ ! -f "src-tauri/assets/dmg-background.jpg" ]; then
+            echo "❌ ERROR: dmg-background.jpg not found!"
+            exit 1
+          fi
+          echo "✅ DMG background image found"
+
+      - name: Build Tauri app with custom DMG
+        run: |
+          echo "🔨 Building app bundle first..."
+          npm run build
+          npm run tauri build --bundles app
+
+          echo "📦 Creating custom DMG with background..."
+          cd src-tauri
+          bash scripts/create-localized-dmg.sh
 
       - name: Notarize DMG
         if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')

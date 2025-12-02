@@ -46,7 +46,7 @@ const downloadedSize = ref(0);
 const totalSize = ref(0);
 const updateInfo = ref<UpdateInfo | null>(null);
 const platform = ref<Platform>('unknown');
-const updateStatus = ref<'idle' | 'downloading' | 'installing' | 'success' | 'error'>('idle');
+const updateStatus = ref<'idle' | 'downloading' | 'installing' | 'success' | 'ready_to_install' | 'error'>('idle');
 const errorMessage = ref('');
 const resultMessage = ref('');
 
@@ -247,8 +247,13 @@ async function handleInstallNow() {
       setTimeout(async () => {
         await invoke('exit_app');
       }, 3000);
+    } else if (result.status === 'ready_to_install') {
+      // macOS: DMG 已挂载并打开，准备拖拽安装
+      updateStatus.value = 'ready_to_install';
+      resultMessage.value = result.message;
+      toastStore.success('DMG 已打开，请拖拽安装');
     } else if (result.status === 'downloaded') {
-      // macOS/Linux: 下载完成，已打开文件夹
+      // Linux: 下载完成，已打开文件夹
       updateStatus.value = 'success';
       resultMessage.value = result.message;
       toastStore.success('下载完成，已打开文件夹');
@@ -353,17 +358,25 @@ defineExpose({ checkForUpdates });
           <p class="result-hint">应用将在几秒后退出...</p>
         </div>
 
+        <!-- 准备安装 (macOS DMG 已打开) -->
+        <div v-if="updateStatus === 'ready_to_install'" class="result-section ready">
+          <div class="result-icon">📦</div>
+          <div class="result-title">准备安装</div>
+          <p class="result-message" v-html="resultMessage.replace(/\n/g, '<br>')"></p>
+
+          <!-- macOS 拖拽提示 -->
+          <div class="macos-tip">
+            <strong>安装步骤：</strong>
+            <p>1. 将 CaoGit 图标拖到 Applications 文件夹</p>
+            <p>2. 首次打开时如遇"已损坏"提示，右键点击应用选择"打开"即可</p>
+          </div>
+        </div>
+
         <!-- 下载成功 -->
         <div v-if="updateStatus === 'success'" class="result-section success">
           <div class="result-icon">✅</div>
           <div class="result-title">下载完成</div>
           <p class="result-message" v-html="resultMessage.replace(/\n/g, '<br>')"></p>
-
-          <!-- macOS 特别提示 -->
-          <div v-if="platform === 'macos'" class="macos-tip">
-            <strong>下一步：</strong>
-            <p>请双击运行 <code>安装CaoGit.command</code> 脚本，它会自动完成安装并解决"已损坏"问题。</p>
-          </div>
         </div>
 
         <!-- 错误信息 -->
