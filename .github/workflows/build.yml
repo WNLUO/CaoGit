@@ -128,20 +128,33 @@ jobs:
           fi
 
           if [ -f "$DMG_FILE" ]; then
-            echo "📝 开始公证 DMG: $DMG_FILE"
+            echo "📝 提交 DMG 到 Apple 公证服务: $DMG_FILE"
 
-            # 上传到 Apple 进行公证
-            xcrun notarytool submit "$DMG_FILE" \
+            # 异步提交到 Apple 进行公证（不等待结果）
+            SUBMISSION_OUTPUT=$(xcrun notarytool submit "$DMG_FILE" \
               --apple-id "$APPLE_ID" \
               --team-id "$APPLE_TEAM_ID" \
-              --password "$APPLE_APP_PASSWORD" \
-              --wait
+              --password "$APPLE_APP_PASSWORD" 2>&1)
 
-            # 附加公证票据到 DMG
-            echo "📎 附加公证票据..."
-            xcrun stapler staple "$DMG_FILE"
+            echo "$SUBMISSION_OUTPUT"
 
-            echo "✅ DMG 公证完成！用户可以直接打开，无需额外操作"
+            # 提取 submission ID（如果需要后续查询状态）
+            SUBMISSION_ID=$(echo "$SUBMISSION_OUTPUT" | grep -o 'id: [a-z0-9-]*' | head -1 | cut -d' ' -f2)
+
+            if [ -n "$SUBMISSION_ID" ]; then
+              echo "✅ 公证请求已提交成功！"
+              echo "   Submission ID: $SUBMISSION_ID"
+              echo "   公证将在后台进行，通常需要 5-60 分钟"
+              echo ""
+              echo "📋 查询公证状态命令:"
+              echo "   xcrun notarytool info $SUBMISSION_ID --apple-id \"$APPLE_ID\" --team-id \"$APPLE_TEAM_ID\" --password \"<app-password>\""
+              echo ""
+              echo "ℹ️  注意：DMG 已包含代码签名，用户下载后可能需要在系统设置中手动允许打开"
+              echo "   公证完成后，后续下载的用户可以直接打开，无需手动操作"
+            else
+              echo "⚠️  公证提交可能失败，但 DMG 已包含代码签名"
+              echo "   用户下载后需要在系统设置中手动允许打开应用"
+            fi
           else
             echo "❌ DMG 文件不存在，跳过公证"
           fi
