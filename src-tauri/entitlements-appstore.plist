@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- ========================================
+         App Sandbox (App Store 必需)
+         ======================================== -->
+    <key>com.apple.security.app-sandbox</key>
+    <true/>
+
+    <!-- ========================================
+         网络权限
+         ======================================== -->
+    <!-- 网络客户端 - 用于访问 GitHub 等 -->
+    <key>com.apple.security.network.client</key>
+    <true/>
+
+    <!-- ========================================
+         文件访问权限
+         ======================================== -->
+    <!-- 用户选择的文件读写 - 用于访问 Git 仓库 -->
+    <key>com.apple.security.files.user-selected.read-write</key>
+    <true/>
+
+    <!-- 用户下载文件夹读写 -->
+    <key>com.apple.security.files.downloads.read-write</key>
+    <true/>
+
+    <!-- 书签访问 - 记住用户授权的目录 -->
+    <key>com.apple.security.files.bookmarks.app-scope</key>
+    <true/>
+
+    <!-- ========================================
+         进程权限
+         ======================================== -->
+    <!-- 允许执行 git 命令（可能需要，视情况而定）-->
+    <!-- 注意：这个可能会被审核拒绝，建议使用 libgit2 -->
+    <!--
+    <key>com.apple.security.temporary-exception.sbpl</key>
+    <string>(allow process-exec* (literal "/usr/bin/git"))</string>
+    -->
+</dict>
+</plist>

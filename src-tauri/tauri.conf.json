@@ -54,6 +54,9 @@
       "icons/icon.ico"
     ],
     "macOS": {
+      "signingIdentity": "Developer ID Application: luo changyi (T5P2UCK36A)",
+      "hardenedRuntime": true,
+      "entitlements": "entitlements.plist",
       "dmg": {
         "appPosition": {
           "x": 240,
@@ -76,7 +79,7 @@
     ],
     "targets": "all"
   },
-  "identifier": "com.caogit.app",
+  "identifier": "com.caogit.macos",
   "productName": "CaoGit",
   "version": "0.2.21"
 }
