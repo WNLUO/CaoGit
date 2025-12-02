@@ -282,7 +282,15 @@ async function generateAICommitMessage() {
       throw new Error(response.error || 'AI API 调用失败');
     }
 
-    const generatedMessage = response.data.trim();
+    let generatedMessage = response.data.trim();
+
+    // 清理 AI 生成的 Markdown 格式标记
+    // 移除代码块标记 ```
+    generatedMessage = generatedMessage.replace(/```[\w]*\n?/g, '');
+    // 移除可能的引用块标记
+    generatedMessage = generatedMessage.replace(/^>\s*/gm, '');
+    // 清理多余的空行
+    generatedMessage = generatedMessage.replace(/\n{3,}/g, '\n\n').trim();
 
     if (generatedMessage) {
       commitMessage.value = generatedMessage;

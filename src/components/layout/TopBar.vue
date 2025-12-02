@@ -273,7 +273,12 @@ async function createNewBranch() {
               :class="['branch-item', { active: branch.is_head }]"
               @click="switchToBranch(branch.name)"
             >
-              <span class="branch-icon">🔀</span>
+              <svg class="branch-icon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="6" y1="3" x2="6" y2="15"></line>
+                <circle cx="18" cy="6" r="3"></circle>
+                <circle cx="6" cy="18" r="3"></circle>
+                <path d="M18 9a9 9 0 0 1-9 9"></path>
+              </svg>
               <span>{{ branch.name }}</span>
             </div>
           </div>
@@ -516,6 +521,17 @@ async function createNewBranch() {
   background-color: rgba(59, 130, 246, 0.1);
   color: var(--accent-color);
   font-weight: 600;
+}
+
+.branch-icon {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  color: var(--text-secondary);
+}
+
+.branch-item.active .branch-icon {
+  color: var(--accent-color);
 }
 
 .actions {
