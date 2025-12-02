@@ -12,6 +12,13 @@ interface UpdateInfo {
   releasedAt: string;
 }
 
+interface AppStoreUpdateInfo {
+  has_update: boolean;
+  current_version: string;
+  latest_version: string;
+  update_message: string;
+}
+
 interface PlatformDownloadInfo {
   url: string;
   filename: string;
@@ -43,6 +50,9 @@ const updateStatus = ref<'idle' | 'downloading' | 'installing' | 'success' | 'er
 const errorMessage = ref('');
 const resultMessage = ref('');
 
+// 检测是否为 App Store 版本
+const isAppStore = import.meta.env.VITE_APPSTORE === 'true';
+
 let unlistenProgress: UnlistenFn | null = null;
 let unlistenUpdateAvailable: UnlistenFn | null = null;
 
@@ -64,6 +74,16 @@ const formattedProgress = computed(() => {
 });
 
 const platformInfo = computed(() => {
+  // App Store 版本特殊处理
+  if (isAppStore && platform.value === 'macos') {
+    return {
+      icon: 'apple',
+      title: 'Mac App Store',
+      description: '点击"前往更新"将打开 Mac App Store，请在 App Store 中完成更新',
+      buttonText: '前往 App Store 更新',
+    };
+  }
+
   switch (platform.value) {
     case 'windows':
       return {
@@ -136,17 +156,40 @@ function detectPlatform() {
 
 async function loadUpdateInfo() {
   try {
-    const result = await invoke<any>('check_for_updates');
-    if (result.success && result.has_update) {
-      updateInfo.value = {
-        currentVersion: result.current_version,
-        latestVersion: result.latest_version,
-        releaseNotes: '点击"查看日志"查看完整的发布说明',
-        downloadUrl: result.download_url,
-        releasedAt: result.released_at,
-      };
-    } else if (result.success && !result.has_update) {
-      updateInfo.value = null;
+    if (isAppStore) {
+      // App Store 版本：调用专用的检查更新命令
+      // 注意：这里使用固定的 GitHub 仓库路径，因为我们在检查应用本身的更新
+      // 后端会使用硬编码的仓库信息 (wnluo/caogit)
+      const result = await invoke<AppStoreUpdateInfo>('check_update_appstore', {
+        repoPath: 'https://github.com/wnluo/caogit',
+        githubToken: null
+      });
+
+      if (result.has_update) {
+        updateInfo.value = {
+          currentVersion: result.current_version,
+          latestVersion: result.latest_version,
+          releaseNotes: result.update_message,
+          downloadUrl: '', // App Store 版本不需要下载链接
+          releasedAt: new Date().toISOString(),
+        };
+      } else {
+        updateInfo.value = null;
+      }
+    } else {
+      // DMG 版本：使用原有的更新检查逻辑
+      const result = await invoke<any>('check_for_updates');
+      if (result.success && result.has_update) {
+        updateInfo.value = {
+          currentVersion: result.current_version,
+          latestVersion: result.latest_version,
+          releaseNotes: '点击"查看日志"查看完整的发布说明',
+          downloadUrl: result.download_url,
+          releasedAt: result.released_at,
+        };
+      } else if (result.success && !result.has_update) {
+        updateInfo.value = null;
+      }
     }
   } catch (error) {
     console.error('Failed to load update info:', error);
@@ -156,6 +199,20 @@ async function loadUpdateInfo() {
 async function handleInstallNow() {
   if (!updateInfo.value) return;
 
+  // App Store 版本：直接打开 App Store
+  if (isAppStore) {
+    try {
+      await invoke('open_app_store');
+      toastStore.success('已打开 Mac App Store，请在 App Store 中完成更新');
+      showDialog.value = false;
+    } catch (error) {
+      console.error('Failed to open App Store:', error);
+      toastStore.error(`打开 App Store 失败: ${error}`);
+    }
+    return;
+  }
+
+  // DMG 版本：原有的自动下载安装逻辑
   isDownloading.value = true;
   updateStatus.value = 'downloading';
   downloadProgress.value = 0;

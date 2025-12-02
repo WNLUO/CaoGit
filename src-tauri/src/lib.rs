@@ -3,8 +3,15 @@ mod commands;
 mod github_api;
 mod release_commands;
 
+#[cfg(feature = "appstore")]
+mod appstore_update;
+
 use commands::*;
 use release_commands::*;
+
+#[cfg(feature = "appstore")]
+use appstore_update::*;
+
 use tauri::Emitter;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -44,6 +51,7 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            // Git 基础操作
             open_repository,
             get_repository_status,
             stage_file,
@@ -90,10 +98,17 @@ pub fn run() {
             rerun_failed_build,
             increment_version,
             generate_release_notes,
-            install_update,
             get_platform_download_url,
             restart_app,
             exit_app,
+            // 条件编译：自动更新功能（仅 DMG 版本）
+            #[cfg(feature = "auto-update")]
+            install_update,
+            // 条件编译：App Store 更新功能
+            #[cfg(feature = "appstore")]
+            check_update_appstore,
+            #[cfg(feature = "appstore")]
+            open_app_store,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

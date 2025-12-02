@@ -1,0 +1,6 @@
+/* Localized versions of Info.plist keys - Chinese Simplified */
+
+CFBundleName = "CaoGit";
+CFBundleDisplayName = "CaoGit";
+CFBundleGetInfoString = "CaoGit Git 管理器";
+NSHumanReadableCopyright = "Copyright © 2024 CaoGit. All rights reserved.";

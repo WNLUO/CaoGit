@@ -4,6 +4,8 @@ import { GitApi } from '../../services/gitApi';
 import { open } from '@tauri-apps/plugin-dialog';
 import { debugStore } from '../../stores/debugStore';
 import { toastStore } from '../../stores/toastStore';
+import { repoStore } from '../../stores/repoStore';
+import type { Repository } from '../../types';
 import InitRepoModal from './InitRepoModal.vue';
 
 defineProps<{
@@ -98,12 +100,50 @@ async function addLocalRepo() {
     const response = await GitApi.openRepository(localPath.value);
 
     if (response.success) {
-      emit('repo-added', localPath.value);
-      emit('close');
-      // 重置表单
+      const pathToAdd = localPath.value;
+
+      // Extract repository name from path
+      const repoName = pathToAdd.split('/').filter(Boolean).pop() || 'Unknown';
+
+      // Generate new ID
+      const newId = repoStore.repositories.length > 0
+        ? Math.max(...repoStore.repositories.map(r => r.id)) + 1
+        : 1;
+
+      // Try to get remote URL
+      let remoteUrl = '';
+      try {
+        const remotesResponse = await GitApi.getRemotes(pathToAdd);
+        if (remotesResponse.success && remotesResponse.data && remotesResponse.data.length > 0) {
+          const origin = remotesResponse.data.find(r => r.name === 'origin');
+          remoteUrl = origin ? origin.url : remotesResponse.data[0].url;
+        }
+      } catch (error) {
+        // No remote found
+      }
+
+      // Create new repository object
+      const newRepo: Repository = {
+        id: newId,
+        name: repoName,
+        path: pathToAdd,
+        status: 'online',
+        protocol: 'https',
+        authType: 'none',
+        remoteUrl: remoteUrl || undefined
+      };
+
+      // Add to store
+      repoStore.addRepository(newRepo);
+
+      // Emit event for parent component (e.g., to select the repo)
+      emit('repo-added', pathToAdd);
+
+      // Reset form and close
       localPath.value = '';
+      emit('close');
     } else {
-      // Not a git repo, open init modal directly
+      // Not a git repo, open init modal
       debugStore.logInfo(
         `该目录不是Git仓库，打开初始化对话框: ${localPath.value}`,
         'AddRepoModal.addLocalRepo'

@@ -252,7 +252,8 @@ async function createNewBranch() {
     <!-- Draggable area for window -->
     <div class="drag-region" data-tauri-drag-region></div>
 
-    <div class="branch-info">
+    <!-- 有仓库时显示分支信息 -->
+    <div v-if="repoStore.activeRepo" class="branch-info">
       <span class="label">当前分支:</span>
       <div class="branch-selector" @click="toggleBranchMenu">
         <span class="branch-name">{{ currentBranch }}</span>
@@ -280,6 +281,7 @@ async function createNewBranch() {
       </div>
     </div>
 
+  
     <div class="actions">
       <!-- Theme Toggle -->
       <ThemeToggle />
@@ -287,66 +289,69 @@ async function createNewBranch() {
       <!-- Version Display -->
       <VersionDisplay />
 
-      <div class="separator"></div>
+      <!-- Git操作按钮 - 只在有仓库时显示 -->
+      <template v-if="repoStore.activeRepo">
+        <div class="separator"></div>
 
-      <button
-        class="action-btn"
-        title="拉取最新代码"
-        :disabled="isPulling"
-        @click="handlePull"
-      >
-        <span class="icon">
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-        </span>
-        <span>{{ isPulling ? '拉取中...' : '拉取' }}</span>
-      </button>
-      <button
-        class="action-btn"
-        title="推送本地提交"
-        :disabled="isPushing"
-        @click="handlePush"
-      >
-        <span class="icon">
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
-        </span>
-        <span>{{ isPushing ? '推送中...' : '推送' }}</span>
-      </button>
-      <button
-        class="action-btn primary"
-        title="获取远程更新"
-        :disabled="isFetching"
-        @click="handleFetch"
-      >
-        <span class="icon">
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
-        </span>
-        <span>{{ isFetching ? '获取中...' : '获取' }}</span>
-      </button>
-      <button
-        v-if="!hasRemote"
-        class="action-btn"
-        title="发布/管理远程仓库"
-        @click="openPublishModal"
-      >
-        <span class="icon">
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="16"></line><line x1="8" y1="12" x2="16" y2="12"></line></svg>
-        </span>
-        <span>发布</span>
-      </button>
+        <button
+          class="action-btn"
+          title="拉取最新代码"
+          :disabled="isPulling"
+          @click="handlePull"
+        >
+          <span class="icon">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+          </span>
+          <span>{{ isPulling ? '拉取中...' : '拉取' }}</span>
+        </button>
+        <button
+          class="action-btn"
+          title="推送本地提交"
+          :disabled="isPushing"
+          @click="handlePush"
+        >
+          <span class="icon">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+          </span>
+          <span>{{ isPushing ? '推送中...' : '推送' }}</span>
+        </button>
+        <button
+          class="action-btn primary"
+          title="获取远程更新"
+          :disabled="isFetching"
+          @click="handleFetch"
+        >
+          <span class="icon">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+          </span>
+          <span>{{ isFetching ? '获取中...' : '获取' }}</span>
+        </button>
+        <button
+          v-if="!hasRemote"
+          class="action-btn"
+          title="发布/管理远程仓库"
+          @click="openPublishModal"
+        >
+          <span class="icon">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="16"></line><line x1="8" y1="12" x2="16" y2="12"></line></svg>
+          </span>
+          <span>发布</span>
+        </button>
 
-      <div class="separator"></div>
+        <div class="separator"></div>
 
-      <button
-        v-if="hasRemote && isGitHubRepo"
-        class="action-btn release-btn"
-        title="发布管理 - 一键构建多平台版本"
-        @click="openReleaseManager"
-      >
-        <span class="icon">
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="16 12 12 8 8 12"></polyline><line x1="12" y1="16" x2="12" y2="8"></line></svg>
-        </span>
-        <span>发布管理</span>
-      </button>
+        <button
+          v-if="hasRemote && isGitHubRepo"
+          class="action-btn release-btn"
+          title="发布管理 - 一键构建多平台版本"
+          @click="openReleaseManager"
+        >
+          <span class="icon">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="16 12 12 8 8 12"></polyline><line x1="12" y1="16" x2="12" y2="8"></line></svg>
+          </span>
+          <span>发布管理</span>
+        </button>
+      </template>
     </div>
 
     <!-- Publish/Remote Modal -->
@@ -423,6 +428,7 @@ async function createNewBranch() {
   flex-shrink: 1;
   min-width: 0;
 }
+
 
 .label {
   color: var(--text-tertiary);

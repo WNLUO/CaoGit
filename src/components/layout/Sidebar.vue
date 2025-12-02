@@ -56,44 +56,12 @@ function addRepo() {
 }
 
 async function handleRepoAdded(path: string) {
-  // Extract repository name from path
-  const repoName = path.split('/').filter(Boolean).pop() || 'Unknown';
-
-  // Generate new ID
-  const newId = repoStore.repositories.length > 0
-    ? Math.max(...repoStore.repositories.map(r => r.id)) + 1
-    : 1;
-
-  // Try to get remote URL
-  let remoteUrl = '';
-  try {
-    const response = await GitApi.getRemotes(path);
-    if (response.success && response.data && response.data.length > 0) {
-      const origin = response.data.find(r => r.name === 'origin');
-      remoteUrl = origin ? origin.url : response.data[0].url;
-    }
-  } catch (error) {
-    console.log('No remote found for this repository');
+  // Repository is already added to store by AddRepoModal
+  // Just select it and close the modal
+  const addedRepo = repoStore.repositories.find(r => r.path === path);
+  if (addedRepo) {
+    selectRepo(addedRepo);
   }
-
-  // Create new repository object
-  const newRepo: Repository = {
-    id: newId,
-    name: repoName,
-    path: path,
-    status: 'online',
-    protocol: 'https',
-    authType: 'none',
-    remoteUrl: remoteUrl || undefined
-  };
-
-  // Add to store
-  repoStore.addRepository(newRepo);
-
-  // Select the newly added repo
-  selectRepo(newRepo);
-
-  // Close modal
   showAddRepoModal.value = false;
 }
 

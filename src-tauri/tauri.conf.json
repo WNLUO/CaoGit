@@ -54,9 +54,10 @@
       "icons/icon.ico"
     ],
     "macOS": {
-      "signingIdentity": "Developer ID Application: luo changyi (T5P2UCK36A)",
-      "hardenedRuntime": true,
-      "entitlements": "entitlements.plist",
+      "signingIdentity": "3rd Party Mac Developer Application: luo changyi (T5P2UCK36A)",
+      "hardenedRuntime": false,
+      "entitlements": "entitlements-appstore.plist",
+      "minimumSystemVersion": "12.0",
       "dmg": {
         "appPosition": {
           "x": 240,
@@ -75,11 +76,14 @@
     },
     "resources": [
       "resources/fix-macos.command",
-      "resources/README-macOS.txt"
+      "resources/README-macOS.txt",
+      "resources/zh_CN.lproj",
+      "resources/zh-Hans.lproj",
+      "resources/en.lproj"
     ],
     "targets": "all"
   },
   "identifier": "com.caogit.macos",
   "productName": "CaoGit",
-  "version": "0.2.21"
+  "version": "0.2.22"
 }

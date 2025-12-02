@@ -683,6 +683,8 @@ async fn get_release_asset_url(version: &str, platform: &str) -> Result<(String,
 }
 
 /// 安装更新（平台特定实现）
+/// 仅在独立分发版本（DMG）中启用
+#[cfg(feature = "auto-update")]
 #[tauri::command]
 pub async fn install_update(app: tauri::AppHandle, _download_url: String, platform: String, version: String) -> Result<UpdateInstallResult, String> {
     // 获取下载目录

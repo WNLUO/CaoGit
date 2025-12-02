@@ -1,11 +1,16 @@
 [package]
 name = "tauri-app-caogit"
-version = "0.2.21"
+version = "0.2.22"
 description = "A Tauri App"
 authors = ["you"]
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[features]
+default = ["auto-update"]
+auto-update = []  # 独立分发版本的自动更新功能（DMG）
+appstore = []     # App Store 版本标识
 
 [lib]
 # The `_lib` suffix may seem redundant but it is necessary
