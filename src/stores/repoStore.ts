@@ -219,6 +219,10 @@ export const repoStore = reactive({
 
         const response = await GitApi.commitChanges(this.activeRepo.path, message);
         if (response.success) {
+            // Invalidate commits cache since we just created a new commit
+            const escapedPath = this.activeRepo.path.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            cacheService.invalidatePattern(`commits:${escapedPath}:.*`);
+
             // Parallel refresh for better performance
             await Promise.all([
                 this.refreshStatus(),
@@ -247,6 +251,10 @@ export const repoStore = reactive({
 
         const response = await GitApi.checkoutBranch(this.activeRepo.path, branchName);
         if (response.success) {
+            // Invalidate commits cache since we're switching branches
+            const escapedPath = this.activeRepo.path.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            cacheService.invalidatePattern(`commits:${escapedPath}:.*`);
+
             // Parallel refresh for better performance
             await Promise.all([
                 this.refreshBranches(),
@@ -325,6 +333,10 @@ export const repoStore = reactive({
         );
 
         if (response.success) {
+            // Invalidate commits cache since pull may bring new commits
+            const escapedPath = this.activeRepo.path.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            cacheService.invalidatePattern(`commits:${escapedPath}:.*`);
+
             // 刷新所有状态
             await Promise.all([
                 this.refreshStatus(),
@@ -472,6 +484,10 @@ export const repoStore = reactive({
         if (!this.activeRepo) return;
 
         try {
+            // Invalidate commits cache to ensure we get fresh data
+            const escapedPath = this.activeRepo.path.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            cacheService.invalidatePattern(`commits:${escapedPath}:.*`);
+
             await Promise.all([
                 this.refreshStatus(),
                 this.refreshBranches(),

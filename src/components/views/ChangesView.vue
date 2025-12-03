@@ -158,22 +158,9 @@ async function doCommit() {
     return;
   }
 
-  // 如果没有暂存的文件，自动暂存所有变更
-  if (stagedFiles.value.length === 0 && unstagedFiles.value.length > 0) {
-    try {
-      // 暂存所有文件
-      await Promise.all(
-        unstagedFiles.value.map(file => repoStore.stageFile(file.path))
-      );
-    } catch (error: any) {
-      toastStore.error('自动暂存文件失败: ' + error.message);
-      return;
-    }
-  }
-
-  // 再次检查是否有暂存的文件
+  // 检查是否有暂存的文件
   if (stagedFiles.value.length === 0) {
-    toastStore.warning('没有文件需要提交');
+    toastStore.warning('请先暂存文件');
     return;
   }
 
@@ -182,34 +169,10 @@ async function doCommit() {
     await repoStore.commit(commitMessage.value);
     commitMessage.value = '';
     toastStore.success('提交成功!');
-
-    // 提交成功后，检查是否需要推送
-    await checkAndPromptPush();
   } catch (error: any) {
     toastStore.error('提交失败: ' + error.message);
   } finally {
     isCommitting.value = false;
-  }
-}
-
-async function checkAndPromptPush() {
-  // 刷新同步状态
-  await repoStore.refreshSyncStatus();
-
-  // 如果本地领先远程，提示用户推送
-  if (repoStore.syncStatus && repoStore.syncStatus.ahead > 0) {
-    const shouldPush = confirm(
-      `本地领先远程 ${repoStore.syncStatus.ahead} 个提交。\n\n是否立即推送到远程仓库？`
-    );
-
-    if (shouldPush) {
-      try {
-        await repoStore.push();
-        toastStore.success('推送成功!');
-      } catch (error: any) {
-        toastStore.error('推送失败: ' + error.message);
-      }
-    }
   }
 }
 
@@ -597,14 +560,15 @@ function getDiffStatusColor(status?: FileChange['diffStatus']) {
         <div class="commit-actions">
           <button
             class="commit-btn primary"
-            :disabled="!commitMessage || isCommitting || repoStore.fileChanges.length === 0"
+            :disabled="!commitMessage || isCommitting || stagedFiles.length === 0"
             @click="doCommit"
+            :title="stagedFiles.length === 0 ? '请先暂存文件' : '提交暂存的文件'"
           >
-            {{ isCommitting ? '提交中...' : (stagedFiles.length === 0 ? '暂存并提交至 ' : '提交至 ') + repoStore.currentBranch }}
+            {{ isCommitting ? '提交中...' : '提交至 ' + repoStore.currentBranch }}
           </button>
           <button
             class="commit-and-push-btn"
-            :disabled="!commitMessage || isCommitting || repoStore.fileChanges.length === 0"
+            :disabled="!commitMessage || isCommitting || stagedFiles.length === 0"
             @click="doCommitAndPush"
             title="提交后立即推送到远程仓库"
           >
