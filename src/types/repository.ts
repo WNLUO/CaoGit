@@ -8,10 +8,11 @@ export interface Repository {
   path: string;
   status: 'online' | 'offline' | 'syncing' | 'error';
   protocol: 'http' | 'https' | 'ssh';
-  authType: 'none' | 'token' | 'password';
+  authType: 'none' | 'token' | 'password' | 'ssh';
   token?: string;
   username?: string;
   password?: string;
+  sshKeyPath?: string;
   proxy?: ProxySettings;
   remoteUrl?: string;
 }
