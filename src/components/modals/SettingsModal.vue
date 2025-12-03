@@ -50,10 +50,11 @@ const debugModeEnabled = ref(false);
 const releaseGithubToken = ref('');
 
 const repoProtocol = ref<'http' | 'https' | 'ssh'>('https');
-const repoAuthType = ref<'none' | 'token' | 'password'>('none');
+const repoAuthType = ref<'none' | 'token' | 'password' | 'ssh'>('none');
 const repoToken = ref('');
 const repoUsername = ref('');
 const repoPassword = ref('');
+const repoSshKeyPath = ref('');
 
 const repoProxyEnabled = ref(false);
 const repoProxyHost = ref('');
@@ -162,6 +163,7 @@ watch(() => props.isOpen, (newVal) => {
       repoToken.value = props.repo.token || '';
       repoUsername.value = props.repo.username || '';
       repoPassword.value = props.repo.password || '';
+      repoSshKeyPath.value = props.repo.sshKeyPath || '';
 
       if (props.repo.proxy) {
         repoProxyEnabled.value = props.repo.proxy.enabled;
@@ -239,16 +241,18 @@ const editingAuth = ref(false);
 // 保存编辑前的值
 const authBackup = ref<{
   protocol: 'http' | 'https' | 'ssh';
-  authType: 'none' | 'token' | 'password';
+  authType: 'none' | 'token' | 'password' | 'ssh';
   token: string;
   username: string;
   password: string;
+  sshKeyPath: string;
 }>({
   protocol: 'https',
   authType: 'none',
   token: '',
   username: '',
-  password: ''
+  password: '',
+  sshKeyPath: ''
 });
 
 function startEditAuth() {
@@ -258,7 +262,8 @@ function startEditAuth() {
     authType: repoAuthType.value,
     token: repoToken.value,
     username: repoUsername.value,
-    password: repoPassword.value
+    password: repoPassword.value,
+    sshKeyPath: repoSshKeyPath.value
   };
   editingAuth.value = true;
 }
@@ -270,6 +275,7 @@ function cancelEditAuth() {
   repoToken.value = authBackup.value.token;
   repoUsername.value = authBackup.value.username;
   repoPassword.value = authBackup.value.password;
+  repoSshKeyPath.value = authBackup.value.sshKeyPath;
   editingAuth.value = false;
 }
 
@@ -409,6 +415,7 @@ function save() {
       token: repoToken.value || undefined,
       username: repoUsername.value || undefined,
       password: repoPassword.value || undefined,
+      sshKeyPath: repoSshKeyPath.value || undefined,
     };
 
     // Save proxy settings
