@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, watch, onMounted } from 'vue';
 import { settingsStore } from '../../stores/settingsStore';
 import { debugStore } from '../../stores/debugStore';
 import { toastStore } from '../../stores/toastStore';
@@ -20,21 +20,31 @@ type SettingsTab =
 
 const activeTab = ref<SettingsTab>('appearance');
 
-// Local state for all settings
-const localSettings = ref({ ...settingsStore.settings });
+// Local state for all settings - Deep clone to avoid shared references
+const localSettings = ref(JSON.parse(JSON.stringify(settingsStore.settings)));
 
 // Verification state
 const verifyingToken = ref<'github' | 'gitlab' | 'gitee' | null>(null);
 
 // Watch for changes in Appearance and Editor settings for real-time updates
-import { watch } from 'vue';
+
 
 watch(() => localSettings.value.appearance, (newVal) => {
-  settingsStore.updateAppearance(newVal);
+  // Only update store if value is different from store
+  if (JSON.stringify(settingsStore.settings.appearance) !== JSON.stringify(newVal)) {
+    settingsStore.updateAppearance(newVal);
+  }
 }, { deep: true });
 
 watch(() => localSettings.value.editor, (newVal) => {
   settingsStore.updateEditor(newVal);
+}, { deep: true });
+
+// Watch for external changes in settingsStore (e.g. from TopBar theme toggle)
+watch(() => settingsStore.settings.appearance, (newVal) => {
+  if (JSON.stringify(localSettings.value.appearance) !== JSON.stringify(newVal)) {
+    localSettings.value.appearance = { ...newVal };
+  }
 }, { deep: true });
 
 // 侧边栏菜单配置
@@ -123,13 +133,13 @@ function saveSettings() {
 function resetSettings() {
   if (confirm('确定要重置所有设置为默认值吗？此操作不可撤销。')) {
     settingsStore.resetToDefaults();
-    localSettings.value = { ...settingsStore.settings };
+    localSettings.value = JSON.parse(JSON.stringify(settingsStore.settings));
     toastStore.success('已重置为默认设置');
   }
 }
 
 function discardChanges() {
-  localSettings.value = { ...settingsStore.settings };
+  localSettings.value = JSON.parse(JSON.stringify(settingsStore.settings));
   toastStore.info('已放弃更改');
 }
 
@@ -157,7 +167,7 @@ function importSettings() {
         try {
           const success = settingsStore.importSettings(event.target.result);
           if (success) {
-            localSettings.value = { ...settingsStore.settings };
+            localSettings.value = JSON.parse(JSON.stringify(settingsStore.settings));
             toastStore.success('设置已导入');
           } else {
             toastStore.error('导入失败：文件格式不正确');
@@ -184,6 +194,26 @@ function selectSshKey() {
   // TODO: 实现文件选择器
   toastStore.info('文件选择功能开发中');
 }
+
+// Debug System Theme
+const systemThemeDebug = ref('');
+function updateSystemThemeDebug() {
+  if (typeof window !== 'undefined' && window.matchMedia) {
+    const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    const isLight = window.matchMedia('(prefers-color-scheme: light)').matches;
+    systemThemeDebug.value = `系统状态: Dark=${isDark}, Light=${isLight}`;
+  } else {
+    systemThemeDebug.value = '系统状态: matchMedia 不可用';
+  }
+}
+
+onMounted(() => {
+  updateSystemThemeDebug();
+  // Listen for changes
+  if (window.matchMedia) {
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', updateSystemThemeDebug);
+  }
+});
 </script>
 
 <template>
@@ -232,6 +262,9 @@ function selectSshKey() {
               <option value="system">跟随系统</option>
             </select>
             <span class="hint">更改主题将影响整个应用的配色方案</span>
+            <div v-if="localSettings.appearance.theme === 'system'" class="debug-info">
+              {{ systemThemeDebug }}
+            </div>
           </div>
 
           <div class="form-group">
@@ -1243,5 +1276,11 @@ function selectSshKey() {
 
 .btn-browse:hover {
   background-color: var(--bg-hover);
+}
+.debug-info {
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--text-tertiary);
+  font-family: monospace;
 }
 </style>

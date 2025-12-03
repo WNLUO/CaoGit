@@ -1,4 +1,5 @@
 import { reactive } from 'vue';
+import { setTheme, type Theme } from './themeStore';
 
 export interface ProxySettings {
   enabled: boolean;
@@ -253,6 +254,9 @@ export const settingsStore = reactive({
   updateAppearance(appearance: Partial<AppearanceSettings>) {
     this.settings.appearance = { ...this.settings.appearance, ...appearance };
     this.saveSettings({ appearance: this.settings.appearance });
+    if (appearance.theme) {
+      setTheme(appearance.theme as Theme);
+    }
   },
 
   updateGitBehavior(gitBehavior: Partial<GitBehaviorSettings>) {
@@ -327,5 +331,9 @@ export const settingsStore = reactive({
   resetToDefaults() {
     this.settings = { ...DEFAULT_SETTINGS };
     this.saveSettings(this.settings);
+    setTheme(this.settings.appearance.theme as Theme);
   }
 });
+
+// Initialize theme from settings
+setTheme(settingsStore.settings.appearance.theme as Theme);

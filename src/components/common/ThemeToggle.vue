@@ -1,18 +1,32 @@
 <script setup lang="ts">
 import { computed } from 'vue';
-import { themeStore, toggleTheme, setTheme, type Theme } from '../../stores/themeStore';
+import { themeStore, type Theme } from '../../stores/themeStore';
+import { settingsStore } from '../../stores/settingsStore';
 
-const currentTheme = computed(() => themeStore.current);
+const currentTheme = computed(() => settingsStore.settings.appearance.theme);
 const effectiveTheme = computed(() => themeStore.effectiveTheme);
 
 const showDropdown = defineModel<boolean>('showDropdown', { default: false });
 
 function handleToggle() {
-  toggleTheme();
+  // Toggle logic: if auto/system, switch to opposite of effective. Else toggle light/dark.
+  const current = currentTheme.value;
+  const effective = effectiveTheme.value;
+  let nextTheme: Theme = 'light';
+
+  if (current === 'system') {
+    nextTheme = effective === 'dark' ? 'light' : 'dark';
+  } else {
+    nextTheme = current === 'dark' ? 'light' : 'dark';
+  }
+  
+  settingsStore.updateAppearance({ theme: nextTheme });
 }
 
 function selectTheme(theme: Theme) {
-  setTheme(theme);
+  // Use 'system' for consistency with settings interface
+  const valueToSave = theme === 'auto' ? 'system' : theme;
+  settingsStore.updateAppearance({ theme: valueToSave });
   showDropdown.value = false;
 }
 </script>
@@ -22,7 +36,7 @@ function selectTheme(theme: Theme) {
     <button
       class="theme-button"
       @click="handleToggle"
-      :title="`当前主题: ${currentTheme === 'auto' ? '自动' : currentTheme === 'dark' ? '暗黑' : '明亮'}`"
+      :title="`当前主题: ${currentTheme === 'system' ? '自动' : currentTheme === 'dark' ? '暗黑' : '明亮'}`"
     >
       <!-- Sun icon for light theme -->
       <svg
@@ -99,8 +113,8 @@ function selectTheme(theme: Theme) {
 
       <button
         class="theme-option"
-        :class="{ active: currentTheme === 'auto' }"
-        @click="selectTheme('auto')"
+        :class="{ active: currentTheme === 'system' }"
+        @click="selectTheme('system')"
       >
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
@@ -108,7 +122,7 @@ function selectTheme(theme: Theme) {
           <line x1="12" y1="17" x2="12" y2="21"></line>
         </svg>
         <span>自动</span>
-        <span v-if="currentTheme === 'auto'" class="checkmark">✓</span>
+        <span v-if="currentTheme === 'system'" class="checkmark">✓</span>
       </button>
     </div>
   </div>
