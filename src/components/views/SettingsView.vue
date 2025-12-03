@@ -26,6 +26,17 @@ const localSettings = ref({ ...settingsStore.settings });
 // Verification state
 const verifyingToken = ref<'github' | 'gitlab' | 'gitee' | null>(null);
 
+// Watch for changes in Appearance and Editor settings for real-time updates
+import { watch } from 'vue';
+
+watch(() => localSettings.value.appearance, (newVal) => {
+  settingsStore.updateAppearance(newVal);
+}, { deep: true });
+
+watch(() => localSettings.value.editor, (newVal) => {
+  settingsStore.updateEditor(newVal);
+}, { deep: true });
+
 // 侧边栏菜单配置
 const menuItems = [
   { id: 'appearance', label: '外观' },

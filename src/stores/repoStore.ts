@@ -102,6 +102,14 @@ export const repoStore = reactive({
         if (response.success && response.data) {
             this.fileChanges = response.data;
 
+            // Check if selected file still exists
+            if (this.selectedFile) {
+                const exists = this.fileChanges.some(f => f.path === this.selectedFile?.path);
+                if (!exists) {
+                    this.selectedFile = null;
+                }
+            }
+
             // Check for conflicts after status update
             await this.checkConflicts();
         } else {
