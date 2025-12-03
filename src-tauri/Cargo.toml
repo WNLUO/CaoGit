@@ -1,6 +1,6 @@
 [package]
 name = "tauri-app-caogit"
-version = "0.2.27"
+version = "0.2.28"
 description = "A Tauri App"
 authors = ["you"]
 edition = "2021"
@@ -41,4 +41,7 @@ copypasta = "0.10"
 opener = "0.7"
 futures-util = "0.3"
 regex = "1.10"
+
+[target.'cfg(target_os = "macos")'.dependencies]
+security-framework = "2.9"
 

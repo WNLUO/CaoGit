@@ -13,6 +13,7 @@ mod tag;
 mod merge;
 mod utils;
 mod ai;
+mod keychain;
 
 // Re-export all commands
 pub use repository::*;
@@ -25,3 +26,4 @@ pub use tag::*;
 pub use merge::*;
 pub use utils::*;
 pub use ai::*;
+pub use keychain::*;

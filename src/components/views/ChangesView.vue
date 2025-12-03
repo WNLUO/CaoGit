@@ -4,16 +4,19 @@ import { repoStore } from '../../stores/repoStore';
 import { toastStore } from '../../stores/toastStore';
 import type { FileChange } from '../../types';
 import AISettingsModal, { type AISettings } from '../modals/AISettingsModal.vue';
+import AIConsentDialog from '../modals/AIConsentDialog.vue';
 import FileIcon from '../common/FileIcon.vue';
 import Resizer from '../layout/Resizer.vue';
 import DiffStats from '../common/DiffStats.vue';
 import { GitApi } from '../../services/gitApi';
 import { settingsStore } from '../../stores/settingsStore';
+import { getFromKeychain, KeychainAccounts, keychainExists } from '../../services/keychainApi';
 
 const commitMessage = ref('');
 const isCommitting = ref(false);
 const isGeneratingAI = ref(false);
 const showAISettings = ref(false);
+const showAIConsent = ref(false);
 const commitSectionHeight = ref(200); // 提交区域的高度
 const showFileActions = ref(false); // 是否显示文件操作按钮
 
@@ -293,8 +296,15 @@ async function generateAICommitMessage() {
     return;
   }
 
+  // Check if user has consented to AI功能
+  const hasConsent = await keychainExists(KeychainAccounts.AI_CONSENT);
+  if (!hasConsent) {
+    showAIConsent.value = true;
+    return;
+  }
+
   // Load AI settings
-  const savedSettings = localStorage.getItem('ai_settings');
+  const savedSettings = localStorage.getItem('ai_settings_v2');
   if (!savedSettings) {
     toastStore.warning('请先配置 AI 设置');
     showAISettings.value = true;
@@ -304,14 +314,18 @@ async function generateAICommitMessage() {
   isGeneratingAI.value = true;
 
   try {
-    const settings: AISettings = JSON.parse(savedSettings);
+    const settings = JSON.parse(savedSettings);
 
-    if (!settings.apiKey) {
+    // Load API key from Keychain
+    const keyResponse = await getFromKeychain(KeychainAccounts.AI_API_KEY);
+    if (!keyResponse.success || !keyResponse.data) {
       toastStore.warning('请先配置 API Key');
       showAISettings.value = true;
       isGeneratingAI.value = false;
       return;
     }
+
+    const apiKey = keyResponse.data;
 
     // 显示加载状态
     commitMessage.value = '正在生成提交信息...';
@@ -354,7 +368,7 @@ async function generateAICommitMessage() {
     // 通过 Rust 后端调用 AI API
     const response = await GitApi.callAIApi(
       settings.apiEndpoint,
-      settings.apiKey,
+      apiKey, // From Keychain
       settings.model,
       [
         {
@@ -401,6 +415,17 @@ async function generateAICommitMessage() {
 
 function handleAISettingsSave(settings: AISettings) {
   console.log('AI settings saved:', settings);
+}
+
+function handleAIConsentAccept() {
+  showAIConsent.value = false;
+  // After consent, try to generate again
+  generateAICommitMessage();
+}
+
+function handleAIConsentDecline() {
+  showAIConsent.value = false;
+  toastStore.info('您已拒绝使用 AI 功能');
 }
 
 function handleCommitSectionResize(delta: number) {
@@ -937,6 +962,12 @@ function getDiffStatusColor(status?: FileChange['diffStatus']) {
       :is-open="showAISettings"
       @close="showAISettings = false"
       @save="handleAISettingsSave"
+    />
+
+    <AIConsentDialog
+      :show="showAIConsent"
+      @accept="handleAIConsentAccept"
+      @decline="handleAIConsentDecline"
     />
   </div>
 </template>

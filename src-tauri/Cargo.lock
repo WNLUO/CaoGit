@@ -4328,7 +4328,7 @@ dependencies = [
 
 [[package]]
 name = "tauri-app-caogit"
-version = "0.2.26"
+version = "0.2.27"
 dependencies = [
  "anyhow",
  "chrono",
@@ -4341,6 +4341,7 @@ dependencies = [
  "opener",
  "regex",
  "reqwest 0.11.27",
+ "security-framework",
  "serde",
  "serde_json",
  "tauri",

@@ -7,6 +7,9 @@ const version = ref('0.1.0');
 const isChecking = ref(false);
 const showMenu = ref(false);
 
+// 检测是否为 App Store 版本
+const isAppStore = import.meta.env.VITE_APPSTORE === 'true';
+
 // 从 Tauri 配置读取版本号
 async function loadVersion() {
   try {
@@ -85,7 +88,8 @@ onMounted(() => {
         当前版本: v{{ version }}
       </div>
       <hr />
-      <button class="menu-item" :disabled="isChecking" @click="checkForUpdates">
+      <!-- App Store 版本不显示检查更新按钮 -->
+      <button v-if="!isAppStore" class="menu-item" :disabled="isChecking" @click="checkForUpdates">
         <span v-if="!isChecking">检查更新</span>
         <span v-else>检查中...</span>
       </button>

@@ -1,5 +1,7 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue';
+import { ref, watch, onMounted } from 'vue';
+import { saveToKeychain, getFromKeychain, KeychainAccounts } from '../../services/keychainApi';
+import { toastStore } from '../../stores/toastStore';
 
 const props = defineProps<{
   isOpen: boolean;
@@ -37,14 +39,18 @@ watch(() => props.isOpen, (newVal) => {
   }
 });
 
-function loadSettings() {
-  // TODO: Load from local storage or backend
-  const saved = localStorage.getItem('ai_settings');
-  if (saved) {
-    try {
+// Auto-migrate from localStorage on component mount
+onMounted(async () => {
+  await autoMigrateFromLocalStorage();
+});
+
+async function loadSettings() {
+  try {
+    // Load non-sensitive settings from localStorage
+    const saved = localStorage.getItem('ai_settings_v2');
+    if (saved) {
       const settings = JSON.parse(saved);
       apiEndpoint.value = settings.apiEndpoint || apiEndpoint.value;
-      apiKey.value = settings.apiKey || '';
       model.value = settings.model || model.value;
 
       // 检查是否是预设模型
@@ -61,31 +67,85 @@ function loadSettings() {
       language.value = settings.language || language.value;
       temperature.value = settings.temperature || temperature.value;
       maxTokens.value = settings.maxTokens || maxTokens.value;
-    } catch (error) {
-      console.error('Failed to load AI settings:', error);
     }
+
+    // Load API key from Keychain (secure storage)
+    const keyResponse = await getFromKeychain(KeychainAccounts.AI_API_KEY);
+    if (keyResponse.success && keyResponse.data) {
+      apiKey.value = keyResponse.data;
+    }
+  } catch (error) {
+    console.error('Failed to load AI settings:', error);
+    toastStore.error('加载 AI 设置失败');
   }
 }
 
-function save() {
-  // 确定最终使用的模型
-  const finalModel = modelSelection.value === 'custom' ? customModel.value : modelSelection.value;
+/**
+ * Auto-migrate API key from old localStorage to Keychain
+ */
+async function autoMigrateFromLocalStorage() {
+  try {
+    const oldSettings = localStorage.getItem('ai_settings');
+    if (oldSettings) {
+      const settings = JSON.parse(oldSettings);
+      if (settings.apiKey) {
+        // Migrate API key to Keychain
+        const migrateResponse = await saveToKeychain(KeychainAccounts.AI_API_KEY, settings.apiKey);
+        if (migrateResponse.success) {
+          // Remove API key from old settings
+          delete settings.apiKey;
+          // Save migrated settings under new key
+          localStorage.setItem('ai_settings_v2', JSON.stringify(settings));
+          // Remove old settings
+          localStorage.removeItem('ai_settings');
+          console.log('Successfully migrated API key to Keychain');
+        }
+      }
+    }
+  } catch (error) {
+    console.error('Failed to migrate AI settings:', error);
+  }
+}
 
-  const settings: AISettings = {
-    apiEndpoint: apiEndpoint.value,
-    apiKey: apiKey.value,
-    model: finalModel,
-    systemPrompt: systemPrompt.value,
-    language: language.value,
-    temperature: temperature.value,
-    maxTokens: maxTokens.value,
-  };
+async function save() {
+  try {
+    // 确定最终使用的模型
+    const finalModel = modelSelection.value === 'custom' ? customModel.value : modelSelection.value;
 
-  // Save to local storage
-  localStorage.setItem('ai_settings', JSON.stringify(settings));
+    // Save API key to Keychain (secure storage)
+    if (apiKey.value) {
+      const keyResponse = await saveToKeychain(KeychainAccounts.AI_API_KEY, apiKey.value);
+      if (!keyResponse.success) {
+        toastStore.error('保存 API Key 失败：' + (keyResponse.error || '未知错误'));
+        return;
+      }
+    }
 
-  emit('save', settings);
-  emit('close');
+    // Save non-sensitive settings to localStorage
+    const settings = {
+      apiEndpoint: apiEndpoint.value,
+      model: finalModel,
+      systemPrompt: systemPrompt.value,
+      language: language.value,
+      temperature: temperature.value,
+      maxTokens: maxTokens.value,
+    };
+
+    localStorage.setItem('ai_settings_v2', JSON.stringify(settings));
+
+    // Emit with full settings (including API key for immediate use)
+    const fullSettings: AISettings = {
+      ...settings,
+      apiKey: apiKey.value,
+    };
+
+    toastStore.success('AI 设置已保存');
+    emit('save', fullSettings);
+    emit('close');
+  } catch (error) {
+    console.error('Failed to save AI settings:', error);
+    toastStore.error('保存设置失败');
+  }
 }
 </script>
 
@@ -98,6 +158,28 @@ function save() {
       </div>
 
       <div class="modal-body">
+        <!-- Privacy Warning -->
+        <div class="privacy-warning">
+          <div class="warning-icon">⚠️</div>
+          <div class="warning-content">
+            <h4>隐私提示</h4>
+            <p>
+              当您使用 AI 功能生成提交信息时，您的<strong>代码变更内容</strong>将被发送到您配置的 AI 服务（OpenAI、Claude 等）进行处理。
+            </p>
+            <p>
+              请确保：
+            </p>
+            <ul>
+              <li>您有权共享这些代码</li>
+              <li>代码中不包含敏感信息（密钥、密码、商业机密等）</li>
+              <li>您了解并同意所选 AI 服务的隐私政策</li>
+            </ul>
+            <p class="warning-note">
+              💡 您的 API Key 将安全存储在 macOS 钥匙串中，而不是明文存储。
+            </p>
+          </div>
+        </div>
+
         <div class="form-group">
           <h4>API 配置</h4>
 
@@ -244,6 +326,60 @@ function save() {
 
 .modal-body {
   padding: var(--spacing-lg);
+}
+
+.privacy-warning {
+  display: flex;
+  gap: var(--spacing-md);
+  padding: var(--spacing-md);
+  background-color: rgba(251, 146, 60, 0.1);
+  border: 1px solid rgba(251, 146, 60, 0.3);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--spacing-lg);
+}
+
+.warning-icon {
+  font-size: 24px;
+  flex-shrink: 0;
+}
+
+.warning-content {
+  flex: 1;
+}
+
+.warning-content h4 {
+  margin: 0 0 var(--spacing-xs) 0;
+  font-size: var(--font-size-base);
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.warning-content p {
+  margin: 0 0 var(--spacing-sm) 0;
+  font-size: var(--font-size-sm);
+  color: var(--text-primary);
+  line-height: 1.5;
+}
+
+.warning-content ul {
+  margin: var(--spacing-sm) 0;
+  padding-left: var(--spacing-lg);
+  font-size: var(--font-size-sm);
+  color: var(--text-primary);
+}
+
+.warning-content li {
+  margin-bottom: var(--spacing-xs);
+  line-height: 1.5;
+}
+
+.warning-note {
+  margin-top: var(--spacing-sm);
+  padding: var(--spacing-sm);
+  background-color: rgba(59, 130, 246, 0.1);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
 }
 
 .form-group {

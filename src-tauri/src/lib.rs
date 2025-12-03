@@ -2,6 +2,7 @@ mod git_ops;
 mod commands;
 mod github_api;
 mod release_commands;
+mod keychain;
 
 #[cfg(feature = "appstore")]
 mod appstore_update;
@@ -21,32 +22,37 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_process::init())
         .setup(|app| {
-            let handle = app.handle().clone();
+            // App Store 版本禁用自动更新检查
+            // App Store 通过其自身机制处理应用更新，不允许应用内更新检查
+            #[cfg(not(feature = "appstore"))]
+            {
+                let handle = app.handle().clone();
 
-            // 延迟 2 秒后检查更新，避免阻塞启动
-            std::thread::spawn(move || {
-                std::thread::sleep(std::time::Duration::from_secs(2));
+                // 延迟 2 秒后检查更新，避免阻塞启动
+                std::thread::spawn(move || {
+                    std::thread::sleep(std::time::Duration::from_secs(2));
 
-                match tokio::runtime::Runtime::new() {
-                    Ok(rt) => {
-                        rt.block_on(async {
-                            // 使用自定义的更新检查函数
-                            match check_for_updates(None).await {
-                                Ok(result) if result.has_update => {
-                                    // 有新版本，通知前端
-                                    let _ = handle.emit("update-available", ());
+                    match tokio::runtime::Runtime::new() {
+                        Ok(rt) => {
+                            rt.block_on(async {
+                                // 使用自定义的更新检查函数
+                                match check_for_updates(None).await {
+                                    Ok(result) if result.has_update => {
+                                        // 有新版本，通知前端
+                                        let _ = handle.emit("update-available", ());
+                                    }
+                                    _ => {
+                                        // 已是最新版本或检查失败，静默处理
+                                    }
                                 }
-                                _ => {
-                                    // 已是最新版本或检查失败，静默处理
-                                }
-                            }
-                        });
+                            });
+                        }
+                        Err(e) => {
+                            eprintln!("Failed to create tokio runtime for update check: {}", e);
+                        }
                     }
-                    Err(e) => {
-                        eprintln!("Failed to create tokio runtime for update check: {}", e);
-                    }
-                }
-            });
+                });
+            }
 
             Ok(())
         })
@@ -93,6 +99,8 @@ pub fn run() {
             call_ai_api,
             copy_to_clipboard,
             get_app_version,
+            // 条件编译：自动更新检查（仅 DMG 版本）
+            #[cfg(not(feature = "appstore"))]
             check_for_updates,
             get_release_info,
             publish_new_release,
@@ -102,6 +110,12 @@ pub fn run() {
             get_platform_download_url,
             restart_app,
             exit_app,
+            // Keychain 安全存储
+            keychain_save,
+            keychain_get,
+            keychain_delete,
+            keychain_exists,
+            keychain_migrate,
             // 条件编译：自动更新功能（仅 DMG 版本）
             #[cfg(feature = "auto-update")]
             install_update,

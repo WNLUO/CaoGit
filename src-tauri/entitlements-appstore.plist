@@ -11,7 +11,15 @@
     <!-- ========================================
          网络权限
          ======================================== -->
-    <!-- 网络客户端 - 用于访问 GitHub 等 -->
+    <!-- 网络客户端 - 用于访问以下服务：
+         1. GitHub API (api.github.com) - 获取仓库信息、发布管理
+         2. OpenAI API (api.openai.com) - 可选的 AI 功能（需用户配置和同意）
+         3. Anthropic API (api.anthropic.com) - 可选的 AI 功能（需用户配置和同意）
+         4. 用户自定义的 AI API 端点 - 可选的 AI 功能（需用户配置和同意）
+         5. Git 远程服务器 - 标准 Git 操作（push, pull, fetch）
+
+         所有网络连接都经过用户明确授权，详见隐私政策。
+    -->
     <key>com.apple.security.network.client</key>
     <true/>
 
@@ -20,10 +28,6 @@
          ======================================== -->
     <!-- 用户选择的文件读写 - 用于访问 Git 仓库 -->
     <key>com.apple.security.files.user-selected.read-write</key>
-    <true/>
-
-    <!-- 用户下载文件夹读写 -->
-    <key>com.apple.security.files.downloads.read-write</key>
     <true/>
 
     <!-- 书签访问 - 记住用户授权的目录 -->
