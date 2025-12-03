@@ -6,6 +6,7 @@ import { GitApi } from '../../services/gitApi';
 import PublishModal from '../modals/PublishModal.vue';
 import ThemeToggle from '../common/ThemeToggle.vue';
 import ProgressBar from '../common/ProgressBar.vue';
+import ConfirmModal from '../common/ConfirmModal.vue';
 import ReleaseManagerModal from '../modals/ReleaseManagerModal.vue';
 import VersionDisplay from '../common/VersionDisplay.vue';
 import { settingsStore } from '../../stores/settingsStore';
@@ -46,6 +47,42 @@ const syncStatusDisplay = computed(() => {
 const showProgress = ref(false);
 const progressOperation = ref<'push' | 'pull' | 'fetch' | ''>('');
 const progressMessage = ref('');
+
+// 确认对话框状态
+const confirmModal = ref({
+  show: false,
+  title: '',
+  message: '',
+  type: 'info' as 'info' | 'warning' | 'error',
+  confirmText: '确定',
+  onConfirm: () => {},
+  onCancel: () => {}
+});
+
+function showConfirm(options: {
+  title: string;
+  message: string;
+  type?: 'info' | 'warning' | 'error';
+  confirmText?: string;
+  onConfirm: () => void;
+  onCancel?: () => void;
+}) {
+  confirmModal.value = {
+    show: true,
+    title: options.title,
+    message: options.message,
+    type: options.type || 'info',
+    confirmText: options.confirmText || '确定',
+    onConfirm: () => {
+      options.onConfirm();
+      confirmModal.value.show = false;
+    },
+    onCancel: () => {
+      if (options.onCancel) options.onCancel();
+      confirmModal.value.show = false;
+    }
+  };
+}
 
 // 检查是否有远程仓库
 async function checkRemote() {
@@ -93,6 +130,22 @@ async function handlePull() {
     return;
   }
 
+  // 检查是否有未提交的更改
+  if (repoStore.fileChanges.length > 0) {
+    showConfirm({
+      title: '存在未提交的更改',
+      message: '您有未提交的更改，拉取操作可能会导致冲突或覆盖您的修改。建议先提交或暂存更改。\n\n是否仍要继续拉取？',
+      type: 'warning',
+      confirmText: '继续拉取',
+      onConfirm: executePull
+    });
+    return;
+  }
+
+  executePull();
+}
+
+async function executePull() {
   // 立即显示进度条
   isPulling.value = true;
   progressOperation.value = 'pull';
@@ -104,6 +157,8 @@ async function handlePull() {
   await new Promise(resolve => setTimeout(resolve, 50));
 
   try {
+    if (!repoStore.activeRepo) return;
+
     const response = await GitApi.pull(
       repoStore.activeRepo.path,
       'origin',
@@ -133,6 +188,28 @@ async function handlePush() {
     return;
   }
 
+  // 检查是否落后于远程
+  if (repoStore.syncStatus && repoStore.syncStatus.behind > 0) {
+    showConfirm({
+      title: '落后于远程分支',
+      message: `当前分支落后于远程分支 ${repoStore.syncStatus.behind} 个提交。推送操作可能会失败。\n\n建议先拉取更新。是否仍要尝试推送？`,
+      type: 'warning',
+      confirmText: '尝试推送',
+      onConfirm: executePush
+    });
+    return;
+  }
+
+  // 检查是否有提交可推送
+  if (repoStore.syncStatus && repoStore.syncStatus.ahead === 0) {
+    toastStore.info('没有需要推送的提交');
+    return;
+  }
+
+  executePush();
+}
+
+async function executePush() {
   // 立即显示进度条
   isPushing.value = true;
   progressOperation.value = 'push';
@@ -144,6 +221,8 @@ async function handlePush() {
   await new Promise(resolve => setTimeout(resolve, 50));
 
   try {
+    if (!repoStore.activeRepo) return; // Safety check
+
     // 获取当前仓库的认证配置
     const authConfig = repoStore.activeRepo ? {
       authType: repoStore.activeRepo.authType || 'none',
@@ -424,11 +503,21 @@ async function createNewBranch() {
       @success="handleReleaseSuccess"
     />
 
-    <!-- Progress Bar -->
     <ProgressBar
       :show="showProgress"
       :operation="progressOperation"
       :message="progressMessage"
+    />
+
+    <!-- Confirm Modal -->
+    <ConfirmModal
+      :show="confirmModal.show"
+      :title="confirmModal.title"
+      :message="confirmModal.message"
+      :type="confirmModal.type"
+      :confirm-text="confirmModal.confirmText"
+      @confirm="confirmModal.onConfirm"
+      @cancel="confirmModal.onCancel"
     />
   </header>
 </template>

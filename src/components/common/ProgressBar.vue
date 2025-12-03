@@ -71,32 +71,34 @@ const displayMessage = computed(() => {
 </script>
 
 <template>
-  <Transition name="progress-fade">
-    <div v-if="show" class="progress-overlay">
-      <div class="progress-container">
-        <div class="progress-header">
-          <div class="progress-icon">
-            <svg class="spinner" viewBox="0 0 24 24" fill="none">
-              <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" stroke-dasharray="60" stroke-dashoffset="20" stroke-linecap="round" />
-            </svg>
+  <Teleport to="body">
+    <Transition name="progress-fade">
+      <div v-if="show" class="progress-overlay">
+        <div class="progress-container">
+          <div class="progress-header">
+            <div class="progress-icon">
+              <svg class="spinner" viewBox="0 0 24 24" fill="none">
+                <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" stroke-dasharray="60" stroke-dashoffset="20" stroke-linecap="round" />
+              </svg>
+            </div>
+            <div class="progress-text">
+              <div class="progress-title">{{ displayMessage }}</div>
+              <div class="progress-percentage">{{ Math.round(displayProgress) }}%</div>
+            </div>
           </div>
-          <div class="progress-text">
-            <div class="progress-title">{{ displayMessage }}</div>
-            <div class="progress-percentage">{{ Math.round(displayProgress) }}%</div>
-          </div>
-        </div>
 
-        <div class="progress-bar-container">
-          <div class="progress-bar-bg">
-            <div
-              class="progress-bar-fill"
-              :style="{ width: displayProgress + '%' }"
-            ></div>
+          <div class="progress-bar-container">
+            <div class="progress-bar-bg">
+              <div
+                class="progress-bar-fill"
+                :style="{ width: displayProgress + '%' }"
+              ></div>
+            </div>
           </div>
         </div>
       </div>
-    </div>
-  </Transition>
+    </Transition>
+  </Teleport>
 </template>
 
 <style scoped>
