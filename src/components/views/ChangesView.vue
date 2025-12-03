@@ -25,6 +25,18 @@ onMounted(() => {
 const stagedFiles = computed(() => repoStore.fileChanges.filter(f => f.staged));
 const unstagedFiles = computed(() => repoStore.fileChanges.filter(f => !f.staged));
 
+// 按状态分组未暂存的文件
+const unstagedModified = computed(() => unstagedFiles.value.filter(f => f.status === 'modified'));
+const unstagedAdded = computed(() => unstagedFiles.value.filter(f => f.status === 'added' || f.status === 'untracked'));
+const unstagedDeleted = computed(() => unstagedFiles.value.filter(f => f.status === 'deleted'));
+const unstagedRenamed = computed(() => unstagedFiles.value.filter(f => f.status === 'renamed'));
+
+// 按状态分组已暂存的文件
+const stagedModified = computed(() => stagedFiles.value.filter(f => f.status === 'modified'));
+const stagedAdded = computed(() => stagedFiles.value.filter(f => f.status === 'added' || f.status === 'untracked'));
+const stagedDeleted = computed(() => stagedFiles.value.filter(f => f.status === 'deleted'));
+const stagedRenamed = computed(() => stagedFiles.value.filter(f => f.status === 'renamed'));
+
 // 计算左侧按钮的配置（暂存或提交）
 const leftButtonConfig = computed(() => {
   const hasStaged = stagedFiles.value.length > 0;
@@ -446,53 +458,180 @@ function getDiffStatusColor(status?: FileChange['diffStatus']) {
       <!-- File List Section -->
       <div class="files-section">
         <div class="section-header">
-          <span>变更文件 ({{ repoStore.fileChanges.length }})</span>
+          <span>变更 ({{ repoStore.fileChanges.length }})</span>
         </div>
-        
+
         <div class="file-groups">
-          <!-- Staged -->
-          <div v-if="stagedFiles.length > 0" class="file-group">
-            <div class="group-header">
-              <span class="group-title">暂存区 ({{ stagedFiles.length }})</span>
+          <!-- Staged Changes -->
+          <div v-if="stagedFiles.length > 0" class="file-group staged-group">
+            <div class="group-header main-group">
+              <div class="group-title-wrapper">
+                <svg class="group-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                  <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                </svg>
+                <span class="group-title">暂存区 ({{ stagedFiles.length }})</span>
+              </div>
               <button class="group-action" @click="unstageAll" title="取消暂存所有文件">
                 <span class="action-icon">−</span>
               </button>
             </div>
-            <ul class="file-list">
-              <li
-                v-for="file in stagedFiles"
-                :key="file.path"
-                :class="{ selected: repoStore.selectedFile?.path === file.path }"
-                @click="selectFile(file)"
-              >
-                <div class="file-main-info">
-                  <FileIcon :fileName="file.path.split('/').pop() || file.path" />
-                  <span class="file-path">{{ file.path }}</span>
-                  <span class="status-badge" :style="{ backgroundColor: getStatusColor(file.status) }">
-                    {{ getStatusIcon(file.status) }}
-                  </span>
-                  <span
-                    v-if="file.diffStatus && file.diffStatus !== 'idle'"
-                    class="diff-status-badge"
-                    :style="{ backgroundColor: getDiffStatusColor(file.diffStatus) }"
-                  >
-                    {{ getDiffStatusLabel(file.diffStatus) }}
-                  </span>
-                  <button class="file-action" @click.stop="toggleStage(file)" title="取消暂存">
-                    <span class="action-icon">−</span>
-                  </button>
-                </div>
-                <div v-if="file.stats" class="file-stats">
-                  <DiffStats :stats="file.stats" compact />
-                </div>
-              </li>
-            </ul>
+
+            <!-- Staged Modified Files -->
+            <div v-if="stagedModified.length > 0" class="sub-group">
+              <div class="sub-group-header">
+                <span class="sub-group-title">已修改 ({{ stagedModified.length }})</span>
+              </div>
+              <ul class="file-list">
+                <li
+                  v-for="file in stagedModified"
+                  :key="file.path"
+                  :class="{ selected: repoStore.selectedFile?.path === file.path }"
+                  @click="selectFile(file)"
+                >
+                  <div class="file-main-info">
+                    <FileIcon :fileName="file.path.split('/').pop() || file.path" />
+                    <span class="file-path">{{ file.path }}</span>
+                    <span class="status-badge" :style="{ backgroundColor: getStatusColor(file.status) }">
+                      {{ getStatusIcon(file.status) }}
+                    </span>
+                    <span
+                      v-if="file.diffStatus && file.diffStatus !== 'idle'"
+                      class="diff-status-badge"
+                      :style="{ backgroundColor: getDiffStatusColor(file.diffStatus) }"
+                    >
+                      {{ getDiffStatusLabel(file.diffStatus) }}
+                    </span>
+                    <button class="file-action" @click.stop="toggleStage(file)" title="取消暂存">
+                      <span class="action-icon">−</span>
+                    </button>
+                  </div>
+                  <div v-if="file.stats" class="file-stats">
+                    <DiffStats :stats="file.stats" compact />
+                  </div>
+                </li>
+              </ul>
+            </div>
+
+            <!-- Staged Added Files -->
+            <div v-if="stagedAdded.length > 0" class="sub-group">
+              <div class="sub-group-header">
+                <span class="sub-group-title">新增 ({{ stagedAdded.length }})</span>
+              </div>
+              <ul class="file-list">
+                <li
+                  v-for="file in stagedAdded"
+                  :key="file.path"
+                  :class="{ selected: repoStore.selectedFile?.path === file.path }"
+                  @click="selectFile(file)"
+                >
+                  <div class="file-main-info">
+                    <FileIcon :fileName="file.path.split('/').pop() || file.path" />
+                    <span class="file-path">{{ file.path }}</span>
+                    <span class="status-badge" :style="{ backgroundColor: getStatusColor(file.status) }">
+                      {{ getStatusIcon(file.status) }}
+                    </span>
+                    <span
+                      v-if="file.diffStatus && file.diffStatus !== 'idle'"
+                      class="diff-status-badge"
+                      :style="{ backgroundColor: getDiffStatusColor(file.diffStatus) }"
+                    >
+                      {{ getDiffStatusLabel(file.diffStatus) }}
+                    </span>
+                    <button class="file-action" @click.stop="toggleStage(file)" title="取消暂存">
+                      <span class="action-icon">−</span>
+                    </button>
+                  </div>
+                  <div v-if="file.stats" class="file-stats">
+                    <DiffStats :stats="file.stats" compact />
+                  </div>
+                </li>
+              </ul>
+            </div>
+
+            <!-- Staged Deleted Files -->
+            <div v-if="stagedDeleted.length > 0" class="sub-group">
+              <div class="sub-group-header">
+                <span class="sub-group-title">已删除 ({{ stagedDeleted.length }})</span>
+              </div>
+              <ul class="file-list">
+                <li
+                  v-for="file in stagedDeleted"
+                  :key="file.path"
+                  :class="{ selected: repoStore.selectedFile?.path === file.path }"
+                  @click="selectFile(file)"
+                >
+                  <div class="file-main-info">
+                    <FileIcon :fileName="file.path.split('/').pop() || file.path" />
+                    <span class="file-path">{{ file.path }}</span>
+                    <span class="status-badge" :style="{ backgroundColor: getStatusColor(file.status) }">
+                      {{ getStatusIcon(file.status) }}
+                    </span>
+                    <span
+                      v-if="file.diffStatus && file.diffStatus !== 'idle'"
+                      class="diff-status-badge"
+                      :style="{ backgroundColor: getDiffStatusColor(file.diffStatus) }"
+                    >
+                      {{ getDiffStatusLabel(file.diffStatus) }}
+                    </span>
+                    <button class="file-action" @click.stop="toggleStage(file)" title="取消暂存">
+                      <span class="action-icon">−</span>
+                    </button>
+                  </div>
+                  <div v-if="file.stats" class="file-stats">
+                    <DiffStats :stats="file.stats" compact />
+                  </div>
+                </li>
+              </ul>
+            </div>
+
+            <!-- Staged Renamed Files -->
+            <div v-if="stagedRenamed.length > 0" class="sub-group">
+              <div class="sub-group-header">
+                <span class="sub-group-title">已重命名 ({{ stagedRenamed.length }})</span>
+              </div>
+              <ul class="file-list">
+                <li
+                  v-for="file in stagedRenamed"
+                  :key="file.path"
+                  :class="{ selected: repoStore.selectedFile?.path === file.path }"
+                  @click="selectFile(file)"
+                >
+                  <div class="file-main-info">
+                    <FileIcon :fileName="file.path.split('/').pop() || file.path" />
+                    <span class="file-path">{{ file.path }}</span>
+                    <span class="status-badge" :style="{ backgroundColor: getStatusColor(file.status) }">
+                      {{ getStatusIcon(file.status) }}
+                    </span>
+                    <span
+                      v-if="file.diffStatus && file.diffStatus !== 'idle'"
+                      class="diff-status-badge"
+                      :style="{ backgroundColor: getDiffStatusColor(file.diffStatus) }"
+                    >
+                      {{ getDiffStatusLabel(file.diffStatus) }}
+                    </span>
+                    <button class="file-action" @click.stop="toggleStage(file)" title="取消暂存">
+                      <span class="action-icon">−</span>
+                    </button>
+                  </div>
+                  <div v-if="file.stats" class="file-stats">
+                    <DiffStats :stats="file.stats" compact />
+                  </div>
+                </li>
+              </ul>
+            </div>
           </div>
 
-          <!-- Unstaged -->
-          <div v-if="unstagedFiles.length > 0" class="file-group">
-            <div class="group-header">
-              <span class="group-title">工作区 ({{ unstagedFiles.length }})</span>
+          <!-- Unstaged Changes -->
+          <div v-if="unstagedFiles.length > 0" class="file-group unstaged-group">
+            <div class="group-header main-group">
+              <div class="group-title-wrapper">
+                <svg class="group-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <polyline points="12 6 12 12 16 14"></polyline>
+                </svg>
+                <span class="group-title">工作区 ({{ unstagedFiles.length }})</span>
+              </div>
               <div class="group-actions">
                 <button
                   class="group-action toggle-actions"
@@ -519,51 +658,214 @@ function getDiffStatusColor(status?: FileChange['diffStatus']) {
                 </button>
               </div>
             </div>
-            <ul class="file-list">
-              <li
-                v-for="file in unstagedFiles"
-                :key="file.path"
-                :class="{ selected: repoStore.selectedFile?.path === file.path }"
-                @click="selectFile(file)"
-              >
-                <div class="file-main-info">
-                  <FileIcon :fileName="file.path.split('/').pop() || file.path" />
-                  <span class="file-path">{{ file.path }}</span>
-                  <span class="status-badge" :style="{ backgroundColor: getStatusColor(file.status) }">
-                    {{ getStatusIcon(file.status) }}
-                  </span>
-                  <span
-                    v-if="file.diffStatus && file.diffStatus !== 'idle'"
-                    class="diff-status-badge"
-                    :style="{ backgroundColor: getDiffStatusColor(file.diffStatus) }"
-                  >
-                    {{ getDiffStatusLabel(file.diffStatus) }}
-                  </span>
-                  <button
-                    v-if="showFileActions"
-                    class="file-action discard"
-                    @click.stop="discardFile(file, $event)"
-                    title="丢弃更改"
-                  >
-                    <span class="action-icon">×</span>
-                  </button>
-                  <button
-                    v-if="showFileActions"
-                    class="file-action stage"
-                    @click.stop="toggleStage(file)"
-                    title="暂存"
-                  >
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                      <line x1="12" y1="5" x2="12" y2="19"></line>
-                      <line x1="5" y1="12" x2="19" y2="12"></line>
-                    </svg>
-                  </button>
-                </div>
-                <div v-if="file.stats" class="file-stats">
-                  <DiffStats :stats="file.stats" compact />
-                </div>
-              </li>
-            </ul>
+
+            <!-- Unstaged Modified Files -->
+            <div v-if="unstagedModified.length > 0" class="sub-group">
+              <div class="sub-group-header">
+                <span class="sub-group-title">已修改 ({{ unstagedModified.length }})</span>
+              </div>
+              <ul class="file-list">
+                <li
+                  v-for="file in unstagedModified"
+                  :key="file.path"
+                  :class="{ selected: repoStore.selectedFile?.path === file.path }"
+                  @click="selectFile(file)"
+                >
+                  <div class="file-main-info">
+                    <FileIcon :fileName="file.path.split('/').pop() || file.path" />
+                    <span class="file-path">{{ file.path }}</span>
+                    <span class="status-badge" :style="{ backgroundColor: getStatusColor(file.status) }">
+                      {{ getStatusIcon(file.status) }}
+                    </span>
+                    <span
+                      v-if="file.diffStatus && file.diffStatus !== 'idle'"
+                      class="diff-status-badge"
+                      :style="{ backgroundColor: getDiffStatusColor(file.diffStatus) }"
+                    >
+                      {{ getDiffStatusLabel(file.diffStatus) }}
+                    </span>
+                    <button
+                      v-if="showFileActions"
+                      class="file-action discard"
+                      @click.stop="discardFile(file, $event)"
+                      title="丢弃更改"
+                    >
+                      <span class="action-icon">×</span>
+                    </button>
+                    <button
+                      v-if="showFileActions"
+                      class="file-action stage"
+                      @click.stop="toggleStage(file)"
+                      title="暂存"
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="12" y1="5" x2="12" y2="19"></line>
+                        <line x1="5" y1="12" x2="19" y2="12"></line>
+                      </svg>
+                    </button>
+                  </div>
+                  <div v-if="file.stats" class="file-stats">
+                    <DiffStats :stats="file.stats" compact />
+                  </div>
+                </li>
+              </ul>
+            </div>
+
+            <!-- Unstaged Added Files -->
+            <div v-if="unstagedAdded.length > 0" class="sub-group">
+              <div class="sub-group-header">
+                <span class="sub-group-title">新增 ({{ unstagedAdded.length }})</span>
+              </div>
+              <ul class="file-list">
+                <li
+                  v-for="file in unstagedAdded"
+                  :key="file.path"
+                  :class="{ selected: repoStore.selectedFile?.path === file.path }"
+                  @click="selectFile(file)"
+                >
+                  <div class="file-main-info">
+                    <FileIcon :fileName="file.path.split('/').pop() || file.path" />
+                    <span class="file-path">{{ file.path }}</span>
+                    <span class="status-badge" :style="{ backgroundColor: getStatusColor(file.status) }">
+                      {{ getStatusIcon(file.status) }}
+                    </span>
+                    <span
+                      v-if="file.diffStatus && file.diffStatus !== 'idle'"
+                      class="diff-status-badge"
+                      :style="{ backgroundColor: getDiffStatusColor(file.diffStatus) }"
+                    >
+                      {{ getDiffStatusLabel(file.diffStatus) }}
+                    </span>
+                    <button
+                      v-if="showFileActions"
+                      class="file-action discard"
+                      @click.stop="discardFile(file, $event)"
+                      title="丢弃更改"
+                    >
+                      <span class="action-icon">×</span>
+                    </button>
+                    <button
+                      v-if="showFileActions"
+                      class="file-action stage"
+                      @click.stop="toggleStage(file)"
+                      title="暂存"
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="12" y1="5" x2="12" y2="19"></line>
+                        <line x1="5" y1="12" x2="19" y2="12"></line>
+                      </svg>
+                    </button>
+                  </div>
+                  <div v-if="file.stats" class="file-stats">
+                    <DiffStats :stats="file.stats" compact />
+                  </div>
+                </li>
+              </ul>
+            </div>
+
+            <!-- Unstaged Deleted Files -->
+            <div v-if="unstagedDeleted.length > 0" class="sub-group">
+              <div class="sub-group-header">
+                <span class="sub-group-title">已删除 ({{ unstagedDeleted.length }})</span>
+              </div>
+              <ul class="file-list">
+                <li
+                  v-for="file in unstagedDeleted"
+                  :key="file.path"
+                  :class="{ selected: repoStore.selectedFile?.path === file.path }"
+                  @click="selectFile(file)"
+                >
+                  <div class="file-main-info">
+                    <FileIcon :fileName="file.path.split('/').pop() || file.path" />
+                    <span class="file-path">{{ file.path }}</span>
+                    <span class="status-badge" :style="{ backgroundColor: getStatusColor(file.status) }">
+                      {{ getStatusIcon(file.status) }}
+                    </span>
+                    <span
+                      v-if="file.diffStatus && file.diffStatus !== 'idle'"
+                      class="diff-status-badge"
+                      :style="{ backgroundColor: getDiffStatusColor(file.diffStatus) }"
+                    >
+                      {{ getDiffStatusLabel(file.diffStatus) }}
+                    </span>
+                    <button
+                      v-if="showFileActions"
+                      class="file-action discard"
+                      @click.stop="discardFile(file, $event)"
+                      title="丢弃更改"
+                    >
+                      <span class="action-icon">×</span>
+                    </button>
+                    <button
+                      v-if="showFileActions"
+                      class="file-action stage"
+                      @click.stop="toggleStage(file)"
+                      title="暂存"
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="12" y1="5" x2="12" y2="19"></line>
+                        <line x1="5" y1="12" x2="19" y2="12"></line>
+                      </svg>
+                    </button>
+                  </div>
+                  <div v-if="file.stats" class="file-stats">
+                    <DiffStats :stats="file.stats" compact />
+                  </div>
+                </li>
+              </ul>
+            </div>
+
+            <!-- Unstaged Renamed Files -->
+            <div v-if="unstagedRenamed.length > 0" class="sub-group">
+              <div class="sub-group-header">
+                <span class="sub-group-title">已重命名 ({{ unstagedRenamed.length }})</span>
+              </div>
+              <ul class="file-list">
+                <li
+                  v-for="file in unstagedRenamed"
+                  :key="file.path"
+                  :class="{ selected: repoStore.selectedFile?.path === file.path }"
+                  @click="selectFile(file)"
+                >
+                  <div class="file-main-info">
+                    <FileIcon :fileName="file.path.split('/').pop() || file.path" />
+                    <span class="file-path">{{ file.path }}</span>
+                    <span class="status-badge" :style="{ backgroundColor: getStatusColor(file.status) }">
+                      {{ getStatusIcon(file.status) }}
+                    </span>
+                    <span
+                      v-if="file.diffStatus && file.diffStatus !== 'idle'"
+                      class="diff-status-badge"
+                      :style="{ backgroundColor: getDiffStatusColor(file.diffStatus) }"
+                    >
+                      {{ getDiffStatusLabel(file.diffStatus) }}
+                    </span>
+                    <button
+                      v-if="showFileActions"
+                      class="file-action discard"
+                      @click.stop="discardFile(file, $event)"
+                      title="丢弃更改"
+                    >
+                      <span class="action-icon">×</span>
+                    </button>
+                    <button
+                      v-if="showFileActions"
+                      class="file-action stage"
+                      @click.stop="toggleStage(file)"
+                      title="暂存"
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="12" y1="5" x2="12" y2="19"></line>
+                        <line x1="5" y1="12" x2="19" y2="12"></line>
+                      </svg>
+                    </button>
+                  </div>
+                  <div v-if="file.stats" class="file-stats">
+                    <DiffStats :stats="file.stats" compact />
+                  </div>
+                </li>
+              </ul>
+            </div>
           </div>
         </div>
       </div>
@@ -689,10 +991,53 @@ function getDiffStatusColor(status?: FileChange['diffStatus']) {
   padding: var(--spacing-xs);
 }
 
+.group-header.main-group {
+  background-color: var(--bg-tertiary);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-sm) var(--spacing-md);
+  margin-bottom: var(--spacing-sm);
+}
+
+.group-title-wrapper {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.group-icon {
+  color: var(--accent-color);
+  flex-shrink: 0;
+}
+
+.staged-group .group-icon {
+  color: #10b981; /* green */
+}
+
+.unstaged-group .group-icon {
+  color: #f59e0b; /* amber */
+}
+
 .group-title {
-  font-size: 0.75rem;
-  color: var(--text-tertiary);
+  font-size: 0.8125rem;
+  color: var(--text-primary);
   font-weight: 600;
+}
+
+.sub-group {
+  margin-bottom: var(--spacing-sm);
+}
+
+.sub-group-header {
+  padding: var(--spacing-xs) var(--spacing-md);
+  margin-bottom: var(--spacing-xs);
+}
+
+.sub-group-title {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .group-actions {
