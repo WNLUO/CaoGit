@@ -706,8 +706,8 @@ defineExpose({ checkForUpdates });
 }
 
 .btn-primary {
-  background-color: var(--color-accent);
-  color: white;
+  background-color: var(--accent-color, #2563eb);
+  color: #ffffff;
 }
 
 .btn-primary:not(:disabled):hover {
