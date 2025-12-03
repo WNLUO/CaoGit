@@ -272,6 +272,87 @@ export const repoStore = reactive({
         }
     },
 
+    async push(remoteName: string = 'origin', branchName?: string) {
+        if (!this.activeRepo) return;
+
+        const branch = branchName || this.currentBranch;
+
+        // 获取认证配置
+        const authConfig = this.activeRepo.authType !== 'none' ? {
+            authType: this.activeRepo.authType,
+            username: this.activeRepo.username,
+            password: this.activeRepo.password,
+            sshKeyPath: this.activeRepo.sshKeyPath
+        } : null;
+
+        const response = await GitApi.push(
+            this.activeRepo.path,
+            remoteName,
+            branch,
+            authConfig
+        );
+
+        if (response.success) {
+            // 刷新同步状态
+            await Promise.all([
+                this.refreshSyncStatus(),
+                this.refreshCommits()
+            ]);
+            return response.data;
+        } else {
+            throw new Error(response.error || 'Failed to push');
+        }
+    },
+
+    async pull(remoteName: string = 'origin', branchName?: string) {
+        if (!this.activeRepo) return;
+
+        const branch = branchName || this.currentBranch;
+
+        // 获取认证配置
+        const authConfig = this.activeRepo.authType !== 'none' ? {
+            authType: this.activeRepo.authType,
+            username: this.activeRepo.username,
+            password: this.activeRepo.password,
+            sshKeyPath: this.activeRepo.sshKeyPath
+        } : null;
+
+        const response = await GitApi.pull(
+            this.activeRepo.path,
+            remoteName,
+            branch,
+            authConfig
+        );
+
+        if (response.success) {
+            // 刷新所有状态
+            await Promise.all([
+                this.refreshStatus(),
+                this.refreshCommits(),
+                this.refreshSyncStatus()
+            ]);
+            return response.data;
+        } else {
+            throw new Error(response.error || 'Failed to pull');
+        }
+    },
+
+    async sync() {
+        if (!this.activeRepo) return;
+
+        try {
+            // 先 pull 再 push
+            await this.pull();
+
+            // 检查是否有本地领先的提交需要推送
+            if (this.syncStatus && this.syncStatus.ahead > 0) {
+                await this.push();
+            }
+        } catch (error: any) {
+            throw new Error(error.message || 'Failed to sync');
+        }
+    },
+
     addRepository(repo: Repository) {
         this.repositories.push(repo);
         saveRepositories(this.repositories);

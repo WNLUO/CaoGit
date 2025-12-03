@@ -182,6 +182,76 @@ async function doCommit() {
     await repoStore.commit(commitMessage.value);
     commitMessage.value = '';
     toastStore.success('提交成功!');
+
+    // 提交成功后，检查是否需要推送
+    await checkAndPromptPush();
+  } catch (error: any) {
+    toastStore.error('提交失败: ' + error.message);
+  } finally {
+    isCommitting.value = false;
+  }
+}
+
+async function checkAndPromptPush() {
+  // 刷新同步状态
+  await repoStore.refreshSyncStatus();
+
+  // 如果本地领先远程，提示用户推送
+  if (repoStore.syncStatus && repoStore.syncStatus.ahead > 0) {
+    const shouldPush = confirm(
+      `本地领先远程 ${repoStore.syncStatus.ahead} 个提交。\n\n是否立即推送到远程仓库？`
+    );
+
+    if (shouldPush) {
+      try {
+        await repoStore.push();
+        toastStore.success('推送成功!');
+      } catch (error: any) {
+        toastStore.error('推送失败: ' + error.message);
+      }
+    }
+  }
+}
+
+async function doCommitAndPush() {
+  // 先执行提交前的检查
+  if (!repoStore.activeRepo) {
+    toastStore.warning('请先打开一个仓库');
+    return;
+  }
+
+  // 自动暂存所有未暂存的文件
+  if (stagedFiles.value.length === 0 && unstagedFiles.value.length > 0) {
+    try {
+      for (const file of unstagedFiles.value) {
+        await repoStore.stageFile(file.path);
+      }
+    } catch (error: any) {
+      toastStore.error('暂存文件失败: ' + error.message);
+      return;
+    }
+  }
+
+  // 再次检查是否有暂存的文件
+  if (stagedFiles.value.length === 0) {
+    toastStore.warning('没有文件需要提交');
+    return;
+  }
+
+  isCommitting.value = true;
+  try {
+    // 执行提交
+    await repoStore.commit(commitMessage.value);
+    commitMessage.value = '';
+    toastStore.success('提交成功!');
+
+    // 直接推送，不询问
+    try {
+      await repoStore.push();
+      toastStore.success('推送成功!');
+    } catch (error: any) {
+      toastStore.error('推送失败: ' + error.message);
+    }
   } catch (error: any) {
     toastStore.error('提交失败: ' + error.message);
   } finally {
@@ -524,13 +594,28 @@ function getDiffStatusColor(status?: FileChange['diffStatus']) {
           ></textarea>
         </div>
 
-        <button
-          class="commit-btn"
-          :disabled="!commitMessage || isCommitting || repoStore.fileChanges.length === 0"
-          @click="doCommit"
-        >
-          {{ isCommitting ? '提交中...' : (stagedFiles.length === 0 ? '暂存并提交至 ' : '提交至 ') + repoStore.currentBranch }}
-        </button>
+        <div class="commit-actions">
+          <button
+            class="commit-btn primary"
+            :disabled="!commitMessage || isCommitting || repoStore.fileChanges.length === 0"
+            @click="doCommit"
+          >
+            {{ isCommitting ? '提交中...' : (stagedFiles.length === 0 ? '暂存并提交至 ' : '提交至 ') + repoStore.currentBranch }}
+          </button>
+          <button
+            class="commit-and-push-btn"
+            :disabled="!commitMessage || isCommitting || repoStore.fileChanges.length === 0"
+            @click="doCommitAndPush"
+            title="提交后立即推送到远程仓库"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="17 8 12 3 7 8"></polyline>
+              <line x1="12" y1="3" x2="12" y2="15"></line>
+            </svg>
+            提交并推送
+          </button>
+        </div>
       </div>
     </div>
 
@@ -926,8 +1011,14 @@ textarea:focus {
   border-color: transparent;
 }
 
+.commit-actions {
+  display: flex;
+  gap: var(--spacing-sm);
+  margin-top: auto;
+}
+
 .commit-btn {
-  width: 100%;
+  flex: 1;
   padding: var(--spacing-sm);
   background-color: var(--accent-color);
   color: white;
@@ -944,5 +1035,37 @@ textarea:focus {
 
 .commit-btn:not(:disabled):hover {
   background-color: var(--accent-hover);
+}
+
+.commit-and-push-btn {
+  flex: 1;
+  padding: var(--spacing-sm);
+  background-color: var(--bg-secondary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.commit-and-push-btn:disabled {
+  background-color: var(--bg-tertiary);
+  color: var(--text-tertiary);
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.commit-and-push-btn:not(:disabled):hover {
+  background-color: var(--accent-color);
+  color: white;
+  border-color: var(--accent-color);
+}
+
+.commit-and-push-btn svg {
+  flex-shrink: 0;
 }
 </style>
