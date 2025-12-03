@@ -435,8 +435,10 @@ async function createNewBranch() {
 
 <style scoped>
 .top-bar {
-  height: 64px;
-  background-color: var(--bg-primary);
+  height: 56px;
+  background-color: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--border-color);
   display: flex;
   justify-content: flex-start;
@@ -447,6 +449,10 @@ async function createNewBranch() {
   min-width: 0;
   overflow: visible;
   z-index: 100;
+}
+
+:root[data-theme="dark"] .top-bar {
+  background-color: rgba(15, 23, 42, 0.8);
 }
 
 /* Draggable region covering the entire top bar */
@@ -496,12 +502,19 @@ async function createNewBranch() {
   font-weight: var(--font-weight-semibold);
   color: var(--text-primary);
   background-color: var(--bg-secondary);
-  padding: 4px 10px;
+  padding: 4px 12px;
   border-radius: var(--radius-full);
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   border: 1px solid var(--border-color);
+  transition: all var(--transition-fast);
+}
+
+.branch-name:hover {
+  border-color: var(--accent-color);
+  background-color: var(--bg-hover);
+  box-shadow: 0 0 0 2px var(--accent-subtle);
 }
 
 .branch-name::before {

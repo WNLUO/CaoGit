@@ -28,16 +28,16 @@ const verifyingToken = ref<'github' | 'gitlab' | 'gitee' | null>(null);
 
 // 侧边栏菜单配置
 const menuItems = [
-  { id: 'appearance', label: '外观', icon: 'palette' },
-  { id: 'git-behavior', label: 'Git 行为', icon: 'git' },
-  { id: 'sync', label: '同步设置', icon: 'refresh' },
-  { id: 'editor', label: '编辑器', icon: 'code' },
-  { id: 'network', label: '网络代理', icon: 'globe' },
-  { id: 'platforms', label: 'Git 平台', icon: 'cloud' },
-  { id: 'notification', label: '通知', icon: 'bell' },
-  { id: 'performance', label: '性能', icon: 'zap' },
-  { id: 'security', label: '安全', icon: 'shield' },
-  { id: 'advanced', label: '高级', icon: 'settings' }
+  { id: 'appearance', label: '外观' },
+  { id: 'git-behavior', label: 'Git 行为' },
+  { id: 'sync', label: '同步设置' },
+  { id: 'editor', label: '编辑器' },
+  { id: 'network', label: '网络代理' },
+  { id: 'platforms', label: 'Git 平台' },
+  { id: 'notification', label: '通知' },
+  { id: 'performance', label: '性能' },
+  { id: 'security', label: '安全' },
+  { id: 'advanced', label: '高级' }
 ] as const;
 
 // 判断设置是否有变更
@@ -189,7 +189,6 @@ function selectSshKey() {
           :class="['nav-item', { active: activeTab === item.id }]"
           @click="activeTab = item.id as SettingsTab"
         >
-          <span class="nav-icon" :data-icon="item.icon"></span>
           <span class="nav-label">{{ item.label }}</span>
         </button>
       </nav>

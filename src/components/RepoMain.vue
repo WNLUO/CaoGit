@@ -133,7 +133,7 @@ function handleHistoryFilter(options: FilterOptions) {
 
       <div class="bottom-pane" :style="{ flex: `${100 - rightPanelTopHeight}%` }">
         <div class="pane-header-container">
-          <div class="pane-header-title">提交历史 (HISTORY)</div>
+          <div class="pane-header-title">提交历史</div>
           <div class="pane-header-actions">
             <CommitFilter
               :branches="[]"
@@ -154,6 +154,8 @@ function handleHistoryFilter(options: FilterOptions) {
   height: 100%;
   overflow: hidden;
   min-width: 0;
+  padding: var(--spacing-md);
+  gap: var(--spacing-xs);
 }
 
 .left-panel {
@@ -161,8 +163,18 @@ function handleHistoryFilter(options: FilterOptions) {
   min-width: 240px;
   max-width: 600px;
   height: 100%;
-  border-right: 1px solid var(--border-color);
   flex-shrink: 0;
+  background: rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+}
+
+:root[data-theme="dark"] .left-panel {
+  background: rgba(30, 41, 59, 0.6);
+  border-color: rgba(255, 255, 255, 0.05);
 }
 
 .right-panel {
@@ -172,16 +184,26 @@ function handleHistoryFilter(options: FilterOptions) {
   height: 100%;
   overflow: hidden;
   min-width: 0;
+  gap: var(--spacing-xs);
 }
 
 .top-pane {
   flex: 1;
   min-height: 200px;
-  border-bottom: 1px solid var(--border-color);
   display: flex;
   flex-direction: column;
   overflow: hidden;
   min-height: 0;
+  background: rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+}
+
+:root[data-theme="dark"] .top-pane {
+  background: rgba(30, 41, 59, 0.6);
+  border-color: rgba(255, 255, 255, 0.05);
 }
 
 .bottom-pane {
@@ -189,8 +211,17 @@ function handleHistoryFilter(options: FilterOptions) {
   min-height: 150px;
   display: flex;
   flex-direction: column;
-  background-color: var(--bg-primary);
   min-height: 0;
+  background: rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+}
+
+:root[data-theme="dark"] .bottom-pane {
+  background: rgba(30, 41, 59, 0.6);
+  border-color: rgba(255, 255, 255, 0.05);
 }
 
 .pane-header-container {
@@ -198,10 +229,14 @@ function handleHistoryFilter(options: FilterOptions) {
   align-items: center;
   justify-content: space-between;
   padding: var(--spacing-xs) var(--spacing-md);
-  background-color: var(--bg-secondary);
+  background-color: rgba(255, 255, 255, 0.3);
   border-bottom: 1px solid var(--border-color);
   gap: var(--spacing-md);
   flex-shrink: 0;
+}
+
+:root[data-theme="dark"] .pane-header-container {
+  background-color: rgba(0, 0, 0, 0.2);
 }
 
 .pane-header-title {
@@ -210,6 +245,7 @@ function handleHistoryFilter(options: FilterOptions) {
   color: var(--text-tertiary);
   text-transform: uppercase;
   white-space: nowrap;
+  letter-spacing: 0.05em;
 }
 
 .pane-header-actions {

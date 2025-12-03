@@ -1,43 +1,38 @@
 :root {
-  /* Colors - Premium Palette */
+  /* Colors - Premium Palette (Slate/Zinc based) */
   --bg-primary: #ffffff;
-  --bg-secondary: #f3f4f6;
-  --bg-tertiary: #e5e7eb;
-  --bg-hover: #f9fafb;
+  --bg-secondary: #f8fafc; /* Slate 50 */
+  --bg-tertiary: #f1f5f9; /* Slate 100 */
+  --bg-hover: #f8fafc;
 
-  --text-primary: #111827;
-  --text-secondary: #4b5563;
-  --text-tertiary: #9ca3af;
+  --text-primary: #0f172a; /* Slate 900 */
+  --text-secondary: #475569; /* Slate 600 */
+  --text-tertiary: #94a3b8; /* Slate 400 */
   --text-inverted: #ffffff;
 
-  /* Brand Colors */
-  --accent-color: #2563eb;
-  /* Royal Blue */
-  --accent-hover: #1d4ed8;
-  --accent-subtle: #dbeafe;
+  /* Brand Colors - Vibrant Blue */
+  --accent-color: #3b82f6; /* Blue 500 */
+  --accent-hover: #2563eb; /* Blue 600 */
+  --accent-subtle: #eff6ff; /* Blue 50 */
+  --accent-text: #1d4ed8; /* Blue 700 */
 
-  --success-color: #059669;
-  --warning-color: #d97706;
-  --error-color: #dc2626;
+  --success-color: #10b981; /* Emerald 500 */
+  --warning-color: #f59e0b; /* Amber 500 */
+  --error-color: #ef4444; /* Red 500 */
 
   /* Borders */
-  --border-color: #e5e7eb;
-  --border-focus: #2563eb;
+  --border-color: #e2e8f0; /* Slate 200 */
+  --border-focus: #3b82f6;
 
   /* Spacing */
-  --spacing-xs: 0.25rem;
-  /* 4px */
-  --spacing-sm: 0.5rem;
-  /* 8px */
-  --spacing-md: 1rem;
-  /* 16px */
-  --spacing-lg: 1.5rem;
-  /* 24px */
-  --spacing-xl: 2rem;
-  /* 32px */
+  --spacing-xs: 0.25rem; /* 4px */
+  --spacing-sm: 0.5rem; /* 8px */
+  --spacing-md: 1rem; /* 16px */
+  --spacing-lg: 1.5rem; /* 24px */
+  --spacing-xl: 2rem; /* 32px */
 
   /* Typography */
-  --font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+  --font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
   --font-size-xs: 0.75rem;
   --font-size-sm: 0.875rem;
   --font-size-base: 1rem;
@@ -58,18 +53,19 @@
   --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
   --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
   --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+  --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
 
   /* Transitions */
   --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
   --transition-normal: 200ms cubic-bezier(0.4, 0, 0.2, 1);
 
   /* Diff View Colors - GitHub Style Light */
-  --diff-hunk-bg: #f6f8fa;
-  --diff-hunk-text: #57606a;
-  --diff-hunk-border: #d0d7de;
+  --diff-hunk-bg: #f8fafc;
+  --diff-hunk-text: #64748b;
+  --diff-hunk-border: #e2e8f0;
 
-  --diff-line-border: #d0d7de;
-  --diff-line-number: #57606a;
+  --diff-line-border: #e2e8f0;
+  --diff-line-number: #64748b;
   --diff-gutter-bg: #ffffff;
 
   /* GitHub green for additions */
@@ -86,28 +82,29 @@
   --diff-remove-border: #f85149;
   --diff-remove-word-bg: #ffb3af;
 
-  --diff-empty-bg: #f6f8fa;
-  --diff-context-hover: #f3f4f6;
+  --diff-empty-bg: #f8fafc;
+  --diff-context-hover: #f1f5f9;
 }
 
 /* Dark theme - explicit */
 :root[data-theme="dark"] {
-  --bg-primary: #0f172a;
-  --bg-secondary: #1e293b;
-  --bg-tertiary: #334155;
+  --bg-primary: #0f172a; /* Slate 900 */
+  --bg-secondary: #1e293b; /* Slate 800 */
+  --bg-tertiary: #334155; /* Slate 700 */
   --bg-hover: #1e293b;
 
-  --text-primary: #f1f5f9;
-  --text-secondary: #cbd5e1;
-  --text-tertiary: #94a3b8;
+  --text-primary: #f8fafc; /* Slate 50 */
+  --text-secondary: #cbd5e1; /* Slate 300 */
+  --text-tertiary: #94a3b8; /* Slate 400 */
   --text-inverted: #0f172a;
 
-  --border-color: #334155;
+  --border-color: #334155; /* Slate 700 */
   --border-focus: #3b82f6;
 
   --accent-color: #3b82f6;
-  --accent-hover: #2563eb;
+  --accent-hover: #60a5fa;
   --accent-subtle: #1e3a8a;
+  --accent-text: #93c5fd;
 
   --success-color: #10b981;
   --warning-color: #f59e0b;
@@ -116,6 +113,7 @@
   --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.3);
   --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.3), 0 2px 4px -2px rgb(0 0 0 / 0.3);
   --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.3), 0 4px 6px -4px rgb(0 0 0 / 0.3);
+  --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.3), 0 8px 10px -6px rgb(0 0 0 / 0.3);
 
   /* Diff View Colors - GitHub Style Dark */
   --diff-hunk-bg: #161b22;
@@ -152,7 +150,7 @@
     --bg-tertiary: #334155;
     --bg-hover: #1e293b;
 
-    --text-primary: #f1f5f9;
+    --text-primary: #f8fafc;
     --text-secondary: #cbd5e1;
     --text-tertiary: #94a3b8;
     --text-inverted: #0f172a;
@@ -161,8 +159,9 @@
     --border-focus: #3b82f6;
 
     --accent-color: #3b82f6;
-    --accent-hover: #2563eb;
+    --accent-hover: #60a5fa;
     --accent-subtle: #1e3a8a;
+    --accent-text: #93c5fd;
 
     --success-color: #10b981;
     --warning-color: #f59e0b;
@@ -171,6 +170,7 @@
     --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.3);
     --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.3), 0 2px 4px -2px rgb(0 0 0 / 0.3);
     --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.3), 0 4px 6px -4px rgb(0 0 0 / 0.3);
+    --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.3), 0 8px 10px -6px rgb(0 0 0 / 0.3);
 
     /* Diff View Colors - GitHub Style Dark */
     --diff-hunk-bg: #161b22;
@@ -261,6 +261,7 @@ textarea {
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
   padding: var(--spacing-xs) var(--spacing-sm);
+  transition: all var(--transition-fast);
 }
 
 input:focus,
@@ -288,4 +289,45 @@ textarea:focus {
 
 ::-webkit-scrollbar-thumb:hover {
   background: var(--text-tertiary);
+}
+
+/* Utility Classes */
+.glass-panel {
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+}
+
+:root[data-theme="dark"] .glass-panel {
+  background: rgba(30, 41, 59, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.hover-lift {
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.hover-lift:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.text-gradient {
+  background: linear-gradient(135deg, var(--accent-color), #8b5cf6);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.flex-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.flex-between {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }

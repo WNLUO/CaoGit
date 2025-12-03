@@ -183,8 +183,12 @@ function handleCheckUpdate() {
   display: flex;
   flex-direction: column;
   background-color: var(--bg-primary);
+  /* Subtle gradient for depth */
+  background-image: radial-gradient(circle at top right, var(--bg-secondary) 0%, transparent 40%),
+                    radial-gradient(circle at bottom left, var(--bg-secondary) 0%, transparent 40%);
   min-width: 0;
   overflow: hidden;
+  position: relative;
 }
 
 .content-area {

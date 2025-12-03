@@ -217,11 +217,11 @@ function isCommitSelected(hash: string) {
       <table class="commit-table-header">
         <thead>
           <tr>
-            <th class="col-graph">Graph</th>
-            <th class="col-message">提交信息 (Message)</th>
-            <th class="col-author">作者 (Author)</th>
-            <th class="col-date">日期 (Date)</th>
-            <th class="col-hash">Hash</th>
+            <th class="col-graph">图谱</th>
+            <th class="col-message">提交信息</th>
+            <th class="col-author">作者</th>
+            <th class="col-date">日期</th>
+            <th class="col-hash">哈希</th>
           </tr>
         </thead>
       </table>

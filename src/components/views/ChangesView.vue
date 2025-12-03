@@ -902,7 +902,7 @@ function getDiffStatusColor(status?: FileChange['diffStatus']) {
         <div class="commit-input-wrapper">
           <textarea
             v-model="commitMessage"
-            placeholder="输入提交信息 (Commit Message)..."
+            placeholder="输入提交信息..."
           ></textarea>
         </div>
 

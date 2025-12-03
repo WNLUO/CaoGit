@@ -14,13 +14,13 @@ interface GraphNode {
 }
 
 const colors = [
-  '#3b82f6', // blue
-  '#10b981', // green
-  '#f59e0b', // amber
-  '#ef4444', // red
-  '#8b5cf6', // purple
-  '#ec4899', // pink
-  '#14b8a6', // teal
+  '#3b82f6', // blue-500
+  '#10b981', // emerald-500
+  '#f59e0b', // amber-500
+  '#ef4444', // red-500
+  '#8b5cf6', // violet-500
+  '#ec4899', // pink-500
+  '#06b6d4', // cyan-500
 ];
 
 const nodes = computed<GraphNode[]>(() => {
@@ -108,7 +108,7 @@ watch(() => repoStore.commits, () => {
   width: 100%;
   height: 100%;
   overflow: auto;
-  background-color: var(--bg-primary);
+  background-color: transparent;
 }
 
 canvas {

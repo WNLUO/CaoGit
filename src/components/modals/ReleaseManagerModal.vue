@@ -1,151 +1,153 @@
 <template>
-  <div v-if="show" class="modal-overlay" @click.self="close">
-    <div class="modal-container">
-      <div class="modal-header">
-        <h2>发布管理</h2>
-        <button class="close-btn" @click="close">×</button>
-      </div>
-
-      <div class="modal-body">
-        <!-- Loading State -->
-        <div v-if="loading" class="loading">
-          <div class="spinner"></div>
-          <p>加载中...</p>
+  <Teleport to="body">
+    <div v-if="show" class="modal-overlay" @click.self="close">
+      <div class="modal-container">
+        <div class="modal-header">
+          <h2>发布管理</h2>
+          <button class="close-btn" @click="close">×</button>
         </div>
 
-        <!-- Error State -->
-        <div v-else-if="error" class="error-box">
-          <p>{{ error }}</p>
-          <button @click="loadReleaseInfo">重试</button>
-        </div>
+        <div class="modal-body">
+          <!-- Loading State -->
+          <div v-if="loading" class="loading">
+            <div class="spinner"></div>
+            <p>加载中...</p>
+          </div>
 
-        <!-- Main Content -->
-        <div v-else-if="releaseInfo" class="content">
-          <!-- Publish Section -->
-          <div class="section">
-            <h3>发布新版本</h3>
-            <div class="publish-form">
-              <div class="form-group">
-                <label>当前版本:</label>
-                <span class="current-version">{{ releaseInfo.current_version }}</span>
+          <!-- Error State -->
+          <div v-else-if="error" class="error-box">
+            <p>{{ error }}</p>
+            <button @click="loadReleaseInfo">重试</button>
+          </div>
+
+          <!-- Main Content -->
+          <div v-else-if="releaseInfo" class="content">
+            <!-- Publish Section -->
+            <div class="section">
+              <h3>发布新版本</h3>
+              <div class="publish-form">
+                <div class="form-group">
+                  <label>当前版本:</label>
+                  <span class="current-version">{{ releaseInfo.current_version }}</span>
+                </div>
+
+                <div class="form-group">
+                  <label>新版本号:</label>
+                  <div class="version-input">
+                    <input v-model="newVersion" type="text" placeholder="v0.2.2" />
+                    <button @click="incrementPatch">+补丁</button>
+                    <button @click="incrementMinor">+次版本</button>
+                    <button @click="incrementMajor">+主版本</button>
+                  </div>
+                </div>
+
+                <div class="form-group">
+                  <label>发布说明:</label>
+                  <textarea v-model="releaseMessage" rows="6" placeholder="发布说明..."></textarea>
+                  <button class="generate-btn" :disabled="generating" @click="generateNotes">
+                    <svg v-if="!generating" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+                    </svg>
+                    <svg v-else width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="spinning">
+                      <polyline points="23 4 23 10 17 10"></polyline>
+                      <polyline points="1 20 1 14 7 14"></polyline>
+                      <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+                    </svg>
+                    {{ generating ? '生成中...' : '自动生成' }}
+                  </button>
+                </div>
+
+                <button class="publish-btn" :disabled="publishing" @click="publishRelease">
+                  <span v-if="publishing">发布中...</span>
+                  <span v-else>发布到 GitHub</span>
+                </button>
               </div>
+            </div>
 
-              <div class="form-group">
-                <label>新版本号:</label>
-                <div class="version-input">
-                  <input v-model="newVersion" type="text" placeholder="v0.2.2" />
-                  <button @click="incrementPatch">+Patch</button>
-                  <button @click="incrementMinor">+Minor</button>
-                  <button @click="incrementMajor">+Major</button>
+            <!-- Releases List -->
+            <div class="section">
+              <h3>最近发布 ({{ releaseInfo.releases.length }})</h3>
+              <div class="releases-list">
+                <div v-for="release in releaseInfo.releases.slice(0, 5)" :key="release.id" class="release-item">
+                  <div class="release-header">
+                    <span class="release-tag">{{ release.tag_name }}</span>
+                    <span class="release-date">{{ formatDate(release.created_at) }}</span>
+                  </div>
+                  <div class="release-body">
+                    <p>{{ release.name }}</p>
+                    <div class="release-assets">
+                      <span>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                          <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+                        </svg>
+                        {{ release.assets.length }} 个文件
+                      </span>
+                      <span>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                          <polyline points="7 10 12 15 17 10"></polyline>
+                          <line x1="12" y1="15" x2="12" y2="3"></line>
+                        </svg>
+                        {{ totalDownloads(release.assets) }} 次下载
+                      </span>
+                    </div>
+                  </div>
+                  <a :href="release.html_url" target="_blank" class="view-link">查看详情 →</a>
                 </div>
               </div>
+            </div>
 
-              <div class="form-group">
-                <label>发布说明:</label>
-                <textarea v-model="releaseMessage" rows="6" placeholder="Release notes..."></textarea>
-                <button class="generate-btn" :disabled="generating" @click="generateNotes">
-                  <svg v-if="!generating" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
-                  </svg>
-                  <svg v-else width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="spinning">
+            <!-- Workflow Runs -->
+            <div class="section">
+              <div class="section-header">
+                <h3>构建状态</h3>
+                <button class="refresh-btn" @click="loadReleaseInfo" :disabled="loading" title="刷新构建状态">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" :class="{ spinning: loading }">
                     <polyline points="23 4 23 10 17 10"></polyline>
                     <polyline points="1 20 1 14 7 14"></polyline>
                     <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
                   </svg>
-                  {{ generating ? '生成中...' : '自动生成' }}
                 </button>
               </div>
-
-              <button class="publish-btn" :disabled="publishing" @click="publishRelease">
-                <span v-if="publishing">发布中...</span>
-                <span v-else>发布到 GitHub</span>
-              </button>
-            </div>
-          </div>
-
-          <!-- Releases List -->
-          <div class="section">
-            <h3>最近发布 ({{ releaseInfo.releases.length }})</h3>
-            <div class="releases-list">
-              <div v-for="release in releaseInfo.releases.slice(0, 5)" :key="release.id" class="release-item">
-                <div class="release-header">
-                  <span class="release-tag">{{ release.tag_name }}</span>
-                  <span class="release-date">{{ formatDate(release.created_at) }}</span>
-                </div>
-                <div class="release-body">
-                  <p>{{ release.name }}</p>
-                  <div class="release-assets">
-                    <span>
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
-                      </svg>
-                      {{ release.assets.length }} 个文件
-                    </span>
-                    <span>
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                        <polyline points="7 10 12 15 17 10"></polyline>
-                        <line x1="12" y1="15" x2="12" y2="3"></line>
-                      </svg>
-                      {{ totalDownloads(release.assets) }} 次下载
-                    </span>
+              <div class="workflows-list">
+                <div v-for="run in releaseInfo.workflow_runs.slice(0, 5)" :key="run.id" class="workflow-item">
+                  <div class="workflow-status" :class="getStatusClass(run.status, run.conclusion)">
+                    <!-- Success -->
+                    <svg v-if="run.conclusion === 'success'" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                      <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                    </svg>
+                    <!-- Failure -->
+                    <svg v-else-if="run.conclusion === 'failure'" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <circle cx="12" cy="12" r="10"></circle>
+                      <line x1="15" y1="9" x2="9" y2="15"></line>
+                      <line x1="9" y1="9" x2="15" y2="15"></line>
+                    </svg>
+                    <!-- Running -->
+                    <svg v-else-if="run.status === 'in_progress'" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="spinning">
+                      <circle cx="12" cy="12" r="10"></circle>
+                      <path d="M12 6v6l4 2"></path>
+                    </svg>
+                    <!-- Pending/Other -->
+                    <svg v-else width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <circle cx="12" cy="12" r="10"></circle>
+                      <line x1="12" y1="8" x2="12" y2="12"></line>
+                      <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                    </svg>
                   </div>
-                </div>
-                <a :href="release.html_url" target="_blank" class="view-link">查看详情 →</a>
-              </div>
-            </div>
-          </div>
-
-          <!-- Workflow Runs -->
-          <div class="section">
-            <div class="section-header">
-              <h3>构建状态</h3>
-              <button class="refresh-btn" @click="loadReleaseInfo" :disabled="loading" title="刷新构建状态">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" :class="{ spinning: loading }">
-                  <polyline points="23 4 23 10 17 10"></polyline>
-                  <polyline points="1 20 1 14 7 14"></polyline>
-                  <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
-                </svg>
-              </button>
-            </div>
-            <div class="workflows-list">
-              <div v-for="run in releaseInfo.workflow_runs.slice(0, 5)" :key="run.id" class="workflow-item">
-                <div class="workflow-status" :class="getStatusClass(run.status, run.conclusion)">
-                  <!-- Success -->
-                  <svg v-if="run.conclusion === 'success'" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
-                    <polyline points="22 4 12 14.01 9 11.01"></polyline>
-                  </svg>
-                  <!-- Failure -->
-                  <svg v-else-if="run.conclusion === 'failure'" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <circle cx="12" cy="12" r="10"></circle>
-                    <line x1="15" y1="9" x2="9" y2="15"></line>
-                    <line x1="9" y1="9" x2="15" y2="15"></line>
-                  </svg>
-                  <!-- Running -->
-                  <svg v-else-if="run.status === 'in_progress'" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="spinning">
-                    <circle cx="12" cy="12" r="10"></circle>
-                    <path d="M12 6v6l4 2"></path>
-                  </svg>
-                  <!-- Pending/Other -->
-                  <svg v-else width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <circle cx="12" cy="12" r="10"></circle>
-                    <line x1="12" y1="8" x2="12" y2="12"></line>
-                    <line x1="12" y1="16" x2="12.01" y2="16"></line>
-                  </svg>
-                </div>
-                <div class="workflow-info">
-                  <div class="workflow-name">{{ run.name }}</div>
-                  <div class="workflow-meta">
-                    <span>{{ formatDate(run.created_at) }}</span>
-                    <span v-if="run.conclusion">{{ run.conclusion }}</span>
+                  <div class="workflow-info">
+                    <div class="workflow-name">{{ run.name }}</div>
+                    <div class="workflow-meta">
+                      <span>{{ formatDate(run.created_at) }}</span>
+                      <span v-if="run.conclusion">{{ run.conclusion }}</span>
+                    </div>
                   </div>
-                </div>
-                <div class="workflow-actions">
-                  <a :href="run.html_url" target="_blank" class="view-link-small">查看</a>
-                  <button v-if="run.conclusion === 'failure'" @click="rerunWorkflow(run.id)" class="rerun-btn">
-                    重新运行
-                  </button>
+                  <div class="workflow-actions">
+                    <a :href="run.html_url" target="_blank" class="view-link-small">查看</a>
+                    <button v-if="run.conclusion === 'failure'" @click="rerunWorkflow(run.id)" class="rerun-btn">
+                      重新运行
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -153,7 +155,7 @@
         </div>
       </div>
     </div>
-  </div>
+  </Teleport>
 </template>
 
 <script setup lang="ts">
@@ -230,7 +232,7 @@ async function publishRelease() {
   if (!props.repoPath || !newVersion.value) return
 
   // 清理发布说明内容，避免 Git tag 创建失败
-  const cleanedMessage = cleanReleaseMessage(releaseMessage.value || `Release ${newVersion.value}`)
+  const cleanedMessage = cleanReleaseMessage(releaseMessage.value || `发布 ${newVersion.value}`)
 
   publishing.value = true
   try {
@@ -538,6 +540,7 @@ function close() {
   cursor: pointer;
   font-size: 13px;
   transition: all 0.2s;
+  color: var(--text-primary);
 }
 
 .version-input button:hover {

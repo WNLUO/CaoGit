@@ -266,7 +266,9 @@ const contextMenuItems = computed(() => [
 
 <style scoped>
 .sidebar {
-  background-color: var(--bg-secondary);
+  background-color: rgba(248, 250, 252, 0.8);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   border-right: 1px solid var(--border-color);
   display: flex;
   flex-direction: column;
@@ -274,6 +276,10 @@ const contextMenuItems = computed(() => [
   overflow: hidden;
   flex-shrink: 0;
   min-width: 0;
+}
+
+:root[data-theme="dark"] .sidebar {
+  background-color: rgba(30, 41, 59, 0.8);
 }
 
 .sidebar-header {
@@ -328,7 +334,7 @@ ul {
 }
 
 li {
-  padding: var(--spacing-sm);
+  padding: 12px var(--spacing-sm);
   border-radius: var(--radius-md);
   cursor: pointer;
   margin-bottom: 2px;
@@ -337,6 +343,7 @@ li {
   justify-content: space-between;
   align-items: center;
   border: 1px solid transparent;
+  border-left: 3px solid transparent;
 }
 
 li:hover {
@@ -344,18 +351,18 @@ li:hover {
 }
 
 li.active {
-  background-color: var(--bg-primary);
-  border-color: var(--border-color);
-  box-shadow: var(--shadow-sm);
+  background-color: var(--accent-subtle);
+  border-left-color: var(--accent-color);
 }
 
 li.active .repo-name {
-  color: var(--text-primary);
+  color: var(--accent-text);
   font-weight: var(--font-weight-semibold);
 }
 
 li.active .repo-remote {
-  color: var(--text-secondary);
+  color: var(--accent-text);
+  opacity: 0.8;
 }
 
 .repo-info {

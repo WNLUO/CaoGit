@@ -83,6 +83,17 @@ function getStatusBadgeColor(status: string) {
     default: return 'var(--text-tertiary)';
   }
 }
+
+function getStatusText(status: string) {
+  switch (status) {
+    case 'added': return '新增';
+    case 'modified': return '修改';
+    case 'deleted': return '删除';
+    case 'renamed': return '重命名';
+    case 'untracked': return '未跟踪';
+    default: return status;
+  }
+}
 </script>
 
 <template>
@@ -95,7 +106,7 @@ function getStatusBadgeColor(status: string) {
             class="file-status-badge"
             :style="{ backgroundColor: getStatusBadgeColor(selectedFile.status) }"
           >
-            {{ selectedFile.status }}
+            {{ getStatusText(selectedFile.status) }}
           </span>
           <DiffStats v-if="diffStats.total > 0" :stats="diffStats" compact />
         </div>
