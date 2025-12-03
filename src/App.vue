@@ -4,6 +4,7 @@ import { ref, onMounted, onUnmounted } from 'vue';
 import Sidebar from "./components/layout/Sidebar.vue";
 import TopBar from "./components/layout/TopBar.vue";
 import RepoMain from "./components/RepoMain.vue";
+import SettingsView from "./components/views/SettingsView.vue";
 import SettingsModal from "./components/modals/SettingsModal.vue";
 import DebugErrorDialog from "./components/modals/DebugErrorDialog.vue";
 import UpdateDialog from "./components/modals/UpdateDialog.vue";
@@ -15,6 +16,9 @@ import { toastStore } from "./stores/toastStore";
 import { repoStore } from "./stores/repoStore";
 import type { Repository } from "./types";
 
+type AppView = 'repo' | 'settings' | 'welcome';
+
+const activeView = ref<AppView>('welcome');
 const isSettingsOpen = ref(false);
 const settingsMode = ref<'global' | 'repo'>('global');
 const selectedRepo = ref<Repository | undefined>(undefined);
@@ -24,9 +28,7 @@ const sidebarWidth = ref(240);
 const updateDialogRef = ref<InstanceType<typeof UpdateDialog> | null>(null);
 
 function openGlobalSettings() {
-  settingsMode.value = 'global';
-  selectedRepo.value = undefined;
-  isSettingsOpen.value = true;
+  activeView.value = 'settings';
 }
 
 function openRepoSettings(repo: Repository) {
@@ -37,6 +39,7 @@ function openRepoSettings(repo: Repository) {
 
 function selectRepo(repo: Repository) {
   activeRepo.value = repo;
+  activeView.value = 'repo';
 }
 
 function showAddRepoModal() {
@@ -98,7 +101,13 @@ function handleCheckUpdate() {
     <main class="main-content">
       <TopBar @open-global-settings="openGlobalSettings" @check-update="handleCheckUpdate" />
       <div class="content-area">
-        <RepoMain v-if="activeRepo" :repo="activeRepo" />
+        <!-- Settings View -->
+        <SettingsView v-if="activeView === 'settings'" />
+
+        <!-- Repo View -->
+        <RepoMain v-else-if="activeView === 'repo' && activeRepo" :repo="activeRepo" />
+
+        <!-- Welcome View -->
         <div v-else class="welcome-container">
           <div class="welcome-content">
             <div class="welcome-icon">

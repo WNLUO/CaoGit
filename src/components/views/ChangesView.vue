@@ -16,6 +16,7 @@ const isGeneratingAI = ref(false);
 const showAISettings = ref(false);
 const commitSectionHeight = ref(200); // 提交区域的高度
 const showFileActions = ref(false); // 是否显示文件操作按钮
+const aiGeneratedCommit = ref(false); // 标记提交信息是否由 AI 生成
 
 onMounted(() => {
   // 从设置中恢复提交区域高度
@@ -24,6 +25,40 @@ onMounted(() => {
 
 const stagedFiles = computed(() => repoStore.fileChanges.filter(f => f.staged));
 const unstagedFiles = computed(() => repoStore.fileChanges.filter(f => !f.staged));
+
+// 计算左侧按钮的配置（暂存或提交）
+const leftButtonConfig = computed(() => {
+  const hasStaged = stagedFiles.value.length > 0;
+  const hasUnstaged = unstagedFiles.value.length > 0;
+
+  // 如果是 AI 生成的提交信息，且有未暂存文件 -> 显示"暂存所有"
+  if (aiGeneratedCommit.value && hasUnstaged) {
+    return {
+      text: '暂存所有',
+      title: `暂存所有未暂存的文件 (${unstagedFiles.value.length} 个)`,
+      disabled: false,
+      action: 'stage-all'
+    };
+  }
+
+  // AI 生成后，所有文件都已暂存 -> 显示"提交"且可用
+  if (aiGeneratedCommit.value && !hasUnstaged && hasStaged) {
+    return {
+      text: `提交至 ${repoStore.currentBranch}`,
+      title: `提交暂存的文件 (${stagedFiles.value.length} 个)`,
+      disabled: !commitMessage.value || isCommitting.value,
+      action: 'commit'
+    };
+  }
+
+  // 普通情况：提交按钮
+  return {
+    text: `提交至 ${repoStore.currentBranch}`,
+    title: hasStaged ? '提交暂存的文件' : '请先暂存文件',
+    disabled: !commitMessage.value || isCommitting.value || !hasStaged,
+    action: 'commit'
+  };
+});
 
 async function toggleStage(file: FileChange) {
   try {
@@ -147,6 +182,18 @@ function selectFile(file: FileChange) {
   repoStore.selectedFile = file;
 }
 
+// 处理左侧按钮点击（暂存所有 或 提交）
+async function handleLeftButtonClick() {
+  if (leftButtonConfig.value.action === 'stage-all') {
+    // 暂存所有文件
+    await stageAll();
+    // 暂存后，AI 生成标记保持，但按钮会自动变为"提交"
+  } else {
+    // 提交
+    await doCommit();
+  }
+}
+
 async function doCommit() {
   if (!commitMessage.value.trim()) {
     toastStore.warning('请输入提交信息');
@@ -166,8 +213,10 @@ async function doCommit() {
 
   isCommitting.value = true;
   try {
+    // 执行提交
     await repoStore.commit(commitMessage.value);
     commitMessage.value = '';
+    aiGeneratedCommit.value = false; // 重置 AI 生成标记
     toastStore.success('提交成功!');
   } catch (error: any) {
     toastStore.error('提交失败: ' + error.message);
@@ -206,6 +255,7 @@ async function doCommitAndPush() {
     // 执行提交
     await repoStore.commit(commitMessage.value);
     commitMessage.value = '';
+    aiGeneratedCommit.value = false; // 重置 AI 生成标记
     toastStore.success('提交成功!');
 
     // 直接推送，不询问
@@ -327,6 +377,7 @@ async function generateAICommitMessage() {
 
     if (generatedMessage) {
       commitMessage.value = generatedMessage;
+      aiGeneratedCommit.value = true; // 标记为 AI 生成
     } else {
       throw new Error('AI 返回了空的提交信息');
     }
@@ -334,6 +385,7 @@ async function generateAICommitMessage() {
   } catch (error: any) {
     console.error('AI 生成失败:', error);
     commitMessage.value = '';
+    aiGeneratedCommit.value = false;
     toastStore.error('AI 生成失败: ' + error.message);
   } finally {
     isGeneratingAI.value = false;
@@ -342,6 +394,14 @@ async function generateAICommitMessage() {
 
 function handleAISettingsSave(settings: AISettings) {
   console.log('AI settings saved:', settings);
+}
+
+// 监听手动编辑提交信息
+function handleCommitMessageInput() {
+  // 用户手动编辑时，重置 AI 生成标记
+  if (aiGeneratedCommit.value) {
+    aiGeneratedCommit.value = false;
+  }
 }
 
 function handleCommitSectionResize(delta: number) {
@@ -551,8 +611,9 @@ function getDiffStatusColor(status?: FileChange['diffStatus']) {
         </div>
         
         <div class="commit-input-wrapper">
-          <textarea 
-            v-model="commitMessage" 
+          <textarea
+            v-model="commitMessage"
+            @input="handleCommitMessageInput"
             placeholder="输入提交信息 (Commit Message)..."
           ></textarea>
         </div>
@@ -560,11 +621,11 @@ function getDiffStatusColor(status?: FileChange['diffStatus']) {
         <div class="commit-actions">
           <button
             class="commit-btn primary"
-            :disabled="!commitMessage || isCommitting || stagedFiles.length === 0"
-            @click="doCommit"
-            :title="stagedFiles.length === 0 ? '请先暂存文件' : '提交暂存的文件'"
+            :disabled="leftButtonConfig.disabled"
+            @click="handleLeftButtonClick"
+            :title="leftButtonConfig.title"
           >
-            {{ isCommitting ? '提交中...' : '提交至 ' + repoStore.currentBranch }}
+            {{ isCommitting ? '提交中...' : leftButtonConfig.text }}
           </button>
           <button
             class="commit-and-push-btn"
