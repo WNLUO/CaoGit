@@ -54,25 +54,10 @@
       "icons/icon.ico"
     ],
     "macOS": {
-      "signingIdentity": "3rd Party Mac Developer Application: luo changyi (T5P2UCK36A)",
+      "signingIdentity": null,
       "hardenedRuntime": false,
-      "entitlements": "entitlements-appstore.plist",
-      "minimumSystemVersion": "12.0",
-      "dmg": {
-        "appPosition": {
-          "x": 240,
-          "y": 300
-        },
-        "applicationFolderPosition": {
-          "x": 790,
-          "y": 300
-        },
-        "background": "assets/dmg-background.jpg",
-        "windowSize": {
-          "height": 678,
-          "width": 1025
-        }
-      }
+      "entitlements": null,
+      "minimumSystemVersion": "12.0"
     },
     "resources": [
       "resources/fix-macos.command",
