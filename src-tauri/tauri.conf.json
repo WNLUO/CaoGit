@@ -72,7 +72,8 @@
       "entitlements": "entitlements.plist",
       "hardenedRuntime": true,
       "minimumSystemVersion": "12.0",
-      "signingIdentity": "Developer ID Application: luo changyi (T5P2UCK36A)"
+      "signingIdentity": "Developer ID Application: luo changyi (T5P2UCK36A)",
+      "infoPlist": "Info.plist"
     },
     "resources": [
       "resources/fix-macos.command",

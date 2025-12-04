@@ -2,36 +2,51 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-    <!-- 允许即时编译 (JIT) -->
-    <key>com.apple.security.cs.allow-jit</key>
-    <true/>
+    <!-- ========================================
+         DMG 独立分发版本权限配置
+         更新日期: 2025-12-04
+         ======================================== -->
 
-    <!-- 允许未签名的可执行内存 -->
-    <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
-    <true/>
-
-    <!-- 允许 dyld 环境变量 -->
-    <key>com.apple.security.cs.allow-dyld-environment-variables</key>
-    <true/>
-
-    <!-- 禁用库验证 -->
-    <key>com.apple.security.cs.disable-library-validation</key>
-    <true/>
-
-    <!-- 网络客户端权限 -->
+    <!-- 网络客户端权限 - 用于访问以下服务：
+         1. GitHub API (api.github.com) - 获取仓库信息、发布管理
+         2. OpenAI API (api.openai.com) - 可选的 AI 功能（需用户配置和同意）
+         3. Anthropic API (api.anthropic.com) - 可选的 AI 功能（需用户配置和同意）
+         4. 用户自定义的 AI API 端点
+         5. Git 远程服务器 - 标准 Git 操作（push, pull, fetch）
+    -->
     <key>com.apple.security.network.client</key>
     <true/>
 
-    <!-- 网络服务器权限 (如果需要本地服务) -->
+    <!-- 网络服务器权限 - 用于本地开发服务器
+         注意: 仅在开发模式下使用，生产环境可考虑移除
+    -->
     <key>com.apple.security.network.server</key>
     <true/>
 
-    <!-- 文件读写权限 -->
+    <!-- 文件读写权限 - 用于访问用户选择的 Git 仓库 -->
     <key>com.apple.security.files.user-selected.read-write</key>
     <true/>
 
-    <!-- 如果需要访问下载文件夹 -->
+    <!-- 下载文件夹访问权限 - 用于克隆仓库到下载目录 -->
     <key>com.apple.security.files.downloads.read-write</key>
     <true/>
+
+    <!-- ========================================
+         以下权限已移除以提高安全性：
+         ======================================== -->
+    <!-- ❌ com.apple.security.cs.allow-jit
+         原因: JIT 编译可能带来安全风险，CaoGit 不需要此功能
+    -->
+    <!-- ❌ com.apple.security.cs.allow-unsigned-executable-memory
+         原因: 允许未签名的可执行内存会降低安全性
+    -->
+    <!-- ❌ com.apple.security.cs.allow-dyld-environment-variables
+         原因: 允许动态链接器环境变量可能被恶意利用
+    -->
+    <!-- ❌ com.apple.security.cs.disable-library-validation
+         原因: 禁用库验证会绕过重要的安全检查
+    -->
+
+    <!-- 注意: 如果应用在移除上述权限后无法正常运行，请根据实际需求逐个测试并添加 -->
 </dict>
 </plist>
