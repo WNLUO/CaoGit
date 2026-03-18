@@ -9,5 +9,9 @@
     <!-- 版权信息 -->
     <key>NSHumanReadableCopyright</key>
     <string>Copyright © 2024-2025 CaoGit. All rights reserved.</string>
+
+    <!-- 应用分类 -->
+    <key>LSApplicationCategoryType</key>
+    <string>public.app-category.developer-tools</string>
 </dict>
 </plist>
